@@ -84,6 +84,9 @@ class avPlayerMusic {
     this.GlobalMusic.img = song.img
 
     await this.setLocalSource(song.fileName)
+    await this.avPlayer.prepare()
+    await this.avPlayer.play()
+
   }
 
   /** 上一首 */
