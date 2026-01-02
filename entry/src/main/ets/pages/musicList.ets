@@ -1,7 +1,7 @@
 import { AppStorageV2 } from '@kit.ArkUI'
 import { GlobalMusic } from '../type/GlobalMusic'
 import { SongItemType } from '../type/SongItemType'
-import { avPlayerManage } from '../ulits/avPlayerMusic'
+import { avPlayerManage } from '../utils/avPlayerMusic'
 
 @ComponentV2
 struct musicList{

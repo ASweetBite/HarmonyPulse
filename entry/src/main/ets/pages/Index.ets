@@ -8,7 +8,7 @@ struct Index {
   build() {
     Navigation(this.pageStack) {
     }.onAppear(() => {
-      this.pageStack.pushPathByName("startAdv", null, false);
+      this.pageStack.pushPathByName("layout", null, false);
     })
     .hideNavBar(true)
   }

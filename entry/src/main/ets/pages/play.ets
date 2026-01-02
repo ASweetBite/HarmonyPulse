@@ -1,7 +1,7 @@
 import { GlobalMusic } from "../type/GlobalMusic";
 import { SongItemType } from "../type/SongItemType"
 import { AppStorageV2 } from "@kit.ArkUI";
-import { avPlayerManage } from "../ulits/avPlayerMusic";
+import { avPlayerManage } from "../utils/avPlayerMusic";
 import musicList from "./musicList";
 
 // 跳转页面入口函数

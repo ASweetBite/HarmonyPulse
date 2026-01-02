@@ -1,8 +1,8 @@
 import { AbilityConstant, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit'
 import { hilog } from '@kit.PerformanceAnalysisKit'
 import { window } from '@kit.ArkUI'
-import { avPlayerManage } from '../ulits/avPlayerMusic'
-import { SessionManager } from '../ulits/AVSessionManager'
+import { avPlayerManage } from '../utils/avPlayerMusic'
+import { SessionManager } from '../utils/AVSessionManager'
 
 const DOMAIN = 0x0000
 

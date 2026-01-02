@@ -1,14 +1,5 @@
 {
   "routerMap": [
-      {
-      "name": "startAdv",
-      "pageSourceFile": "src/main/ets/pages/startAdv.ets",
-      "buildFunction": "PageTwoBuilder",
-      "data": {
-        "description" : "this is startAdv"
-      }
-
-    },
     {
       "name": "layout",
       "pageSourceFile": "src/main/ets/pages/layout.ets",

@@ -1,6 +1,6 @@
 import { GlobalMusic } from '../type/GlobalMusic'
 import { AppStorageV2 } from '@kit.ArkUI'
-import { avPlayerManage } from '../ulits/avPlayerMusic'
+import { avPlayerManage } from '../utils/avPlayerMusic'
 import { SongItemType } from '../type/SongItemType'
 
 @Preview
