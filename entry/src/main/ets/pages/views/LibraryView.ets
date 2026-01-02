@@ -43,7 +43,7 @@ export struct LibraryView {
                 .padding(50)
             } else {
               Row() {
-                Image(item.img || $r('app.media.ic_cd'))
+                Image($r('app.media.' + item.img) || $r('app.media.ic_music'))
                   .width(50)
                   .height(50)
                   .borderRadius(6)
