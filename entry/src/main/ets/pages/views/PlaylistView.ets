@@ -1,14 +1,15 @@
-import { PLAYLIST_COLLECTIONS } from '../../common/Constants';
+// src/main/ets/views/PlaylistView.ets
 
-// 独立组件
 @ComponentV2
-export struct PlaylistCollectionView {
-  // 接收 Swiper 控制器（用于切换回资料库，仅必要传参）
-  swiperController: SwiperController = new SwiperController();
+export struct PlaylistView {
+  // 如果需要回调操作 Swiper，可以使用 Event 或者传入回调函数
+  // 这里演示传入一个简单的回调
+  @Event onPlaylistSelected: (name: string) => void = (name) => {};
 
-  // 歌单图标覆盖层（内部 Builder）
+  private playlistCollections: string[] = ["我喜欢的音乐", "最近播放", "车载经典", "周杰伦合集", "轻音乐", "助眠歌单"];
+
   @Builder
-  private PlaylistIconOverlay() {
+  PlaylistIconOverlay() {
     Stack() {
       Image($r('app.media.ic_song_list'))
         .width('40%')
@@ -27,10 +28,9 @@ export struct PlaylistCollectionView {
         .backgroundColor('#F2F2F7')
 
       Grid() {
-        ForEach(PLAYLIST_COLLECTIONS, (item: string) => {
+        ForEach(this.playlistCollections, (item: string) => {
           GridItem() {
             Column() {
-              // 歌单封面模拟
               Rect()
                 .width('100%')
                 .aspectRatio(1)
@@ -46,9 +46,7 @@ export struct PlaylistCollectionView {
             }
             .padding(10)
             .onClick(() => {
-              console.info(`切换到歌单: ${item}`);
-              // 切换后自动滑回主页
-              this.swiperController.changeIndex(0, true);
+              this.onPlaylistSelected(item);
             })
           }
         })
@@ -59,7 +57,6 @@ export struct PlaylistCollectionView {
       .width('100%')
       .layoutWeight(1)
 
-      // 底部垫高
       Column().height(90)
     }
     .width('100%')
