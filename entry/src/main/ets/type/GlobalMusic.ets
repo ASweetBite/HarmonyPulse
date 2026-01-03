@@ -2,31 +2,113 @@
 import { SongItemType } from './SongItemType';
 
 @ObservedV2
+export class Playlist {
+  @Trace name: string = "";
+  @Trace songIds: string[] = []; // 存储歌曲ID，而不是完整对象
+  @Trace cover: string = ""; // 歌单封面
+  @Trace createTime: number = new Date().getTime();
+
+  // 添加构造函数以确保正确初始化
+  constructor(name: string, songIds: string[] = [], cover: string = "") {
+    this.name = name;
+    this.songIds = songIds;
+    this.cover = cover;
+    this.createTime = new Date().getTime();
+  }
+}
+
+@ObservedV2
 export class GlobalMusic {
+  // 现有属性保持不变
   @Trace img: string = ""
   @Trace name: string = ""
   @Trace author: string = ""
   @Trace currentID: string = ""
   @Trace time: number = 0
   @Trace duration: number = 0
-  @Trace isPlay: boolean = false // 默认为 false 更合理
+  @Trace isPlay: boolean = false
   @Trace playbackStatus: "单曲循环" | "随机播放" | "顺序播放" = "顺序播放"
   @Trace currentMusic: number = 0
   @Trace isShowPlayBar: boolean = false
+  @Trace songList: SongItemType[] = [];
 
-  // 核心：播放列表
-  //@Trace playList: SongItemType[] = []
-  @Trace songList: SongItemType[] = []; // 必须加 @Trace
+  // 修正后的歌单管理属性 - 使用构造函数创建实例
+  @Trace playlists: Playlist[] = [
+    new Playlist("我喜欢的音乐", [], ""),
+    new Playlist("最近播放", [], ""),
+    new Playlist("车载经典", [], ""),
+    new Playlist("周杰伦合集", [], ""),
+    new Playlist("轻音乐", [], ""),
+    new Playlist("助眠歌单", [], "")
+  ];
+
+  /**
+   * 添加歌曲到指定歌单
+   */
+  addSongToPlaylist(playlistName: string, songId: string): boolean {
+    const playlist = this.playlists.find(p => p.name === playlistName);
+    if (playlist && !playlist.songIds.includes(songId)) {
+      // 使用扩展运算符确保数组更新能被Trace检测到
+      playlist.songIds = [...playlist.songIds, songId];
+      console.info(`歌曲 ${songId} 已添加到歌单 ${playlistName}`);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * 从歌单移除歌曲
+   */
+  removeSongFromPlaylist(playlistName: string, songId: string): boolean {
+    const playlist = this.playlists.find(p => p.name === playlistName);
+    if (playlist) {
+      const index = playlist.songIds.indexOf(songId);
+      if (index > -1) {
+        playlist.songIds = playlist.songIds.filter(id => id !== songId);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * 获取歌单中的歌曲详情列表
+   */
+  getPlaylistSongs(playlistName: string): SongItemType[] {
+    const playlist = this.playlists.find(p => p.name === playlistName);
+    if (!playlist) return [];
+
+    return playlist.songIds.map(songId =>
+    this.songList.find(song => song.id === songId)
+    ).filter(Boolean) as SongItemType[];
+  }
+
+  /**
+   * 获取歌单歌曲数量
+   */
+  getPlaylistSongCount(playlistName: string): number {
+    const playlist = this.playlists.find(p => p.name === playlistName);
+    return playlist ? playlist.songIds.length : 0;
+  }
+
+  /**
+   * 创建新歌单
+   */
+  createPlaylist(name: string, cover?: string): boolean {
+    if (this.playlists.find(p => p.name === name)) {
+      return false; // 歌单已存在
+    }
+    this.playlists = [...this.playlists, new Playlist(name, [], cover || "")];
+    return true;
+  }
 
   /**
    * 初始化数据 (加载静态资源)
-   * @param list 原始歌曲列表
    */
   initData(list: SongItemType[]) {
-    // 如果已经有数据了，可能不需要重新覆盖，看需求
     if (this.songList.length > 0) return;
 
-    this.songList = [...list]; // 使用扩展运算符确保深拷贝引用
+    this.songList = [...list];
 
     // 如果列表不为空，默认选中第一首（但不播放）
     if (this.songList.length > 0) {
@@ -36,16 +118,9 @@ export class GlobalMusic {
 
   /**
    * 用户添加歌曲逻辑
-   * @param song 新增的歌曲对象
    */
   addSong(song: SongItemType) {
-    // 1. 添加到列表
-    // 注意：在 V2 中，修改数组建议重新赋值或者使用 push，
-    // 但为了确保视图绝对刷新，重新赋值引用是最稳妥的：
     this.songList = [...this.songList, song];
-
-    // 2. (可选) 添加后是否自动切换到这首歌？
-    // this.resetToMusic(this.playList.length - 1);
   }
 
   /**
@@ -64,5 +139,4 @@ export class GlobalMusic {
       this.isShowPlayBar = true;
     }
   }
-
 }
