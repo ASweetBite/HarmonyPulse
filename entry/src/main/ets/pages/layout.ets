@@ -1,5 +1,6 @@
 // src/main/ets/pages/MusicIndex.ets
 import { AppStorageV2, PersistenceV2 } from '@kit.ArkUI';
+import { router } from '@kit.ArkUI'; // 添加路由导入
 import { GlobalMusic } from '../type/GlobalMusic';
 import { songsList } from '../type/data';
 import { MiniPlayBar } from './components/MiniPlayBar';
@@ -133,13 +134,35 @@ struct MusicIndex {
     }
   }
 
+  // 4. 新增：处理歌单点击跳转的函数
+  private handlePlaylistSelected(playlistName: string) {
+    // 使用路由跳转到歌单详情页[6](@ref)
+    router.pushUrl({
+      url: 'pages/PlaylistDetail', // 目标页面路径
+      params: {
+        playlistName: playlistName,
+        songCount: this.globalMusic.playList.length // 传递歌曲数量
+      }
+    }).then(() => {
+      console.info(`跳转到歌单详情页: ${playlistName}`);
+    }).catch((err: Error) => {
+      console.error(`跳转失败: ${err.message}`);
+    });
+  }
+
   build() {
     NavDestination() {
       Stack({ alignContent: Alignment.Bottom }) {
         Swiper(this.swiperController) {
           // 传递状态给子视图
           LibraryView({ musicState: this.globalMusic })
-          PlaylistView()
+
+          // 修改PlaylistView，传递点击处理函数
+          PlaylistView({
+            onPlaylistSelected: (name: string) => {
+              this.handlePlaylistSelected(name);
+            }
+          })
         }
         .loop(false)
         .index(0)
