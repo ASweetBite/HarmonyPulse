@@ -3,6 +3,9 @@
     "routerMap": "$profile:route_map",
     "requestPermissions": [
       {
+        "name": "ohos.permission.VIBRATE",
+      },
+      {
         "name": "ohos.permission.INTERNET"    //申请网络权限
 
       },{ "name": "ohos.permission.KEEP_BACKGROUND_RUNNING" //长时任务
