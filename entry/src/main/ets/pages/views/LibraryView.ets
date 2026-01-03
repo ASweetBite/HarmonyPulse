@@ -43,7 +43,7 @@ export struct LibraryView {
                 .padding(50)
             } else {
               Row() {
-                Image($r('app.media.' + item.img) || $r('app.media.ic_music'))
+                Image((item.img) || $r('app.media.ic_music'))
                   .width(50)
                   .height(50)
                   .borderRadius(6)
@@ -75,6 +75,7 @@ export struct LibraryView {
               .padding({ left: 20, right: 20, top: 10, bottom: 10 })
               .backgroundColor(Color.White)
               .onClick(() => {
+                this.musicState.isPlay = true;
                 avPlayerManage.playResources(item)
               })
             }

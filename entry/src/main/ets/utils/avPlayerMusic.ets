@@ -66,6 +66,7 @@ class avPlayerMusic {
 
     // 重置播放器状态，准备切换歌曲
     await this.avPlayer.reset();
+    this.GlobalMusic.isPlay = false
 
     try {
       // 判断是否为用户导入的歌曲 (根据 ID 前缀判断，或者你可以在 SongItemType 加个布尔值)
@@ -107,19 +108,9 @@ class avPlayerMusic {
     } catch (err) {
       console.error('设置播放源失败: ' + JSON.stringify(err));
     }
-  }
+    this.GlobalMusic.isPlay = true
 
-  // private async setLocalSource(fileName: string) {
-  //   if (!this.context || !this.avPlayer) return
-  //
-  //   const fd = await this.context.resourceManager.getRawFd(fileName)
-  //
-  //   this.avPlayer.fdSrc = {
-  //     fd: fd.fd,
-  //     offset: fd.offset,
-  //     length: fd.length
-  //   }
-  // }
+  }
 
   /** 切歌（本地版） */
   async changePlay() {
