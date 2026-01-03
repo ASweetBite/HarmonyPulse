@@ -1,5 +1,6 @@
 // src/main/ets/pages/MusicIndex.ets
 import { AppStorageV2, PersistenceV2 } from '@kit.ArkUI';
+import { router } from '@kit.ArkUI'; // 添加路由导入
 import { GlobalMusic } from '../type/GlobalMusic';
 import { songsList } from '../type/data';
 import { MiniPlayBar } from './components/MiniPlayBar';
@@ -22,28 +23,37 @@ struct MusicIndex {
 
   // 2. 生命周期：页面加载时初始化数据
   aboutToAppear(): void {
-    // 调用我们在 Class 中封装好的初始化方法
-    // 这样 UI 代码就不用关心怎么赋值了
     this.globalMusic.initData(songsList);
   }
 
   // 3. 模拟：用户添加歌曲的函数
   private handleUserAddSong() {
-    // 这里未来可以接入 FilePicker 选择文件
-    // 现在我们模拟添加一首新歌
     const newSong : SongItemType = {
       id: `user_${Date.now()}`,
       name: `用户导入歌曲 ${this.globalMusic.playList.length + 1}`,
       author: '未知艺术家',
-      img: 'ic_music', // 假设有个默认图
+      img: 'ic_music',
       fileName: 'test_local.mp3'
     };
 
-    // 调用 Class 的方法
     this.globalMusic.addSong(newSong);
-
-    // 提示用户 (PromptAction 需要导入，这里简单 console)
     console.info('已添加新歌曲');
+  }
+
+  // 4. 新增：处理歌单点击跳转的函数
+  private handlePlaylistSelected(playlistName: string) {
+    // 使用路由跳转到歌单详情页[6](@ref)
+    router.pushUrl({
+      url: 'pages/PlaylistDetail', // 目标页面路径
+      params: {
+        playlistName: playlistName,
+        songCount: this.globalMusic.playList.length // 传递歌曲数量
+      }
+    }).then(() => {
+      console.info(`跳转到歌单详情页: ${playlistName}`);
+    }).catch((err: Error) => {
+      console.error(`跳转失败: ${err.message}`);
+    });
   }
 
   build() {
@@ -52,7 +62,13 @@ struct MusicIndex {
         Swiper(this.swiperController) {
           // 传递状态给子视图
           LibraryView({ musicState: this.globalMusic })
-          PlaylistView()
+
+          // 修改PlaylistView，传递点击处理函数
+          PlaylistView({
+            onPlaylistSelected: (name: string) => {
+              this.handlePlaylistSelected(name);
+            }
+          })
         }
         .loop(false)
         .index(0)
