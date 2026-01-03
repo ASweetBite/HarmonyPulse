@@ -4,6 +4,7 @@ import { GlobalMusic } from '../type/GlobalMusic'
 import { AppStorageV2 } from '@kit.ArkUI'
 import { SessionManager } from './AVSessionManager'
 import { SongItemType } from '../type/SongItemType'
+import { fileIo as fs } from '@kit.CoreFileKit';
 
 class avPlayerMusic {
 
@@ -55,18 +56,70 @@ class avPlayerMusic {
     })
   }
 
-  /** 核心：设置本地音乐源 */
-  private async setLocalSource(fileName: string) {
-    if (!this.context || !this.avPlayer) return
+   /** 核心：设置本地音乐源 */
+  /**
+   * 设置音频源 (支持 rawfile 和 沙箱文件)
+   * @param song 传入完整的歌曲对象，方便判断来源
+   */
+  private async setLocalSource(song: SongItemType) {
+    if (!this.context || !this.avPlayer) return;
 
-    const fd = await this.context.resourceManager.getRawFd(fileName)
+    // 重置播放器状态，准备切换歌曲
+    await this.avPlayer.reset();
 
-    this.avPlayer.fdSrc = {
-      fd: fd.fd,
-      offset: fd.offset,
-      length: fd.length
+    try {
+      // 判断是否为用户导入的歌曲 (根据 ID 前缀判断，或者你可以在 SongItemType 加个布尔值)
+      if (song.id.startsWith('user_') || song.id.startsWith('local_')) {
+
+        // --- 情况 A: 处理沙箱中的导入歌曲 ---
+        const filePath = `${this.context.filesDir}/${song.fileName}`;
+
+        // 检查文件是否存在
+        if (fs.accessSync(filePath)) {
+          const file = fs.openSync(filePath, fs.OpenMode.READ_ONLY);
+
+          // 对于沙箱文件，直接传 fd 即可，offset 默认为 0，length 传 -1 表示读到结尾
+          this.avPlayer.fdSrc = {
+            fd: file.fd,
+            offset: 0,
+            length: -1
+          };
+          console.info(`播放沙箱音乐: ${song.name}`);
+        } else {
+          console.error('沙箱文件不存在');
+        }
+
+      } else {
+
+        // --- 情况 B: 处理 rawfile 中的预置歌曲 ---
+        try {
+          const fd = await this.context.resourceManager.getRawFd(song.fileName);
+          this.avPlayer.fdSrc = {
+            fd: fd.fd,
+            offset: fd.offset,
+            length: fd.length
+          };
+          console.info(`播放 Rawfile 音乐: ${song.name}`);
+        } catch (rawError) {
+          console.error('读取 Rawfile 失败: ' + JSON.stringify(rawError));
+        }
+      }
+    } catch (err) {
+      console.error('设置播放源失败: ' + JSON.stringify(err));
     }
   }
+
+  // private async setLocalSource(fileName: string) {
+  //   if (!this.context || !this.avPlayer) return
+  //
+  //   const fd = await this.context.resourceManager.getRawFd(fileName)
+  //
+  //   this.avPlayer.fdSrc = {
+  //     fd: fd.fd,
+  //     offset: fd.offset,
+  //     length: fd.length
+  //   }
+  // }
 
   /** 切歌（本地版） */
   async changePlay() {
@@ -83,7 +136,7 @@ class avPlayerMusic {
     this.GlobalMusic.author = song.author
     this.GlobalMusic.img = song.img
 
-    await this.setLocalSource(song.fileName)
+    await this.setLocalSource(song)
     await this.avPlayer.prepare()
     await this.avPlayer.play()
 
