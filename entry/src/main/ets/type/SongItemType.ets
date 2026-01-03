@@ -2,7 +2,7 @@ export interface SongItemType {
   img: string
   name: string
   author: string
-  fileName: string
+  filePath: string
   lyricPath?: string
   hasLyric?: boolean
   id:string

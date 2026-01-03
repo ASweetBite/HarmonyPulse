@@ -139,7 +139,7 @@ export struct LibraryView {
               name: item.name,
               author: item.author,
               img: item.img,
-              fileName: item.fileName,
+              filePath: item.filePath,
               lyricPath: item.lyricPath,
               hasLyric: item.hasLyric
             }; // 浅拷贝，防止直接修改原数据
