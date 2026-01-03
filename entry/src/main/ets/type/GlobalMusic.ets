@@ -30,7 +30,8 @@ export class GlobalMusic {
   }
 
   /**
-   * 添加歌曲：使用解构赋值确保 V2 的 @Trace 能够监听到引用变化
+   * 用户添加歌曲逻辑
+   * @param song 新增的歌曲对象
    */
   addSong(song: SongItemType) {
     this.songList = [...this.songList, song];
