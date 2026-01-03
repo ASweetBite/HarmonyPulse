@@ -2,8 +2,13 @@ export interface SongItemType {
   img: string
   name: string
   author: string
-  lyricPath?: string        // 本地 lrc 文件路径（file:// 或绝对路径）
-  hasLyric?: boolean        // 是否有歌词（快速判断）
-  filePath: string
+  fileName: string
+  lyricPath?: string
+  hasLyric?: boolean
   id:string
+}
+
+export interface LyricLine {
+  time: number   // 毫秒
+  text: string
 }

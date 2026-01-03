@@ -1,7 +1,9 @@
 // src/main/ets/components/MiniPlayer.ets
 import { GlobalMusic } from '../../type/GlobalMusic';
+import { LyricLine } from '../../type/SongItemType';
 import { avPlayerManage } from '../../utils/avPlayerMusic';
 import { number2time } from '../../utils/TimeUtils';
+import { parseLrc } from '../../utils/LyricUtils';
 
 @ComponentV2
 export struct MiniPlayBar {
@@ -11,8 +13,99 @@ export struct MiniPlayBar {
   // 播放器内部状态：全屏开关
   @Local isFullScreenPlayerOpen: boolean = false;
 
+  // --- 歌词相关状态 ---
+  @Local currentLyricIndex: number = 0;
+  @Local lyricList: LyricLine[] = [];
+
+  // 歌词滚动控制器
+  private lyricScroller: Scroller = new Scroller();
+
+  // 监听音乐时间变化，计算当前歌词行
+  @Monitor("musicState.time")
+  onTimeUpdate() {
+    if (this.lyricList.length === 0) return;
+
+    // 找到最后一个时间小于当前播放时间的歌词行
+    let activeIndex = this.lyricList.findIndex((line) => line.time > this.musicState.time);
+
+    // findIndex 找到的是第一个“大于”当前时间的，所以当前唱的是 activeIndex - 1
+    // 如果返回 -1，说明所有歌词时间都小于当前时间（唱到最后一句了），则取最后一句
+    if (activeIndex === -1) {
+      activeIndex = this.lyricList.length - 1;
+    } else {
+      activeIndex = activeIndex - 1;
+    }
+
+    if (this.currentLyricIndex !== activeIndex) {
+      this.currentLyricIndex = activeIndex;
+      // 歌词自动滚动到中间
+      this.lyricScroller.scrollToIndex(activeIndex, true, ScrollAlign.CENTER);
+    }
+  }
+
+  // 监听歌曲ID变化，重新加载歌词
+  @Monitor("musicState.currentID")
+  onSongChange() {
+    // 模拟加载歌词，实际开发中应读取 fileSystem 或网络请求
+    const mockLrc = `[00:00.00]纯音乐，请欣赏\n[00:05.00]这是模拟的歌词第一行\n[00:10.00]这是第二行，准备高亮\n[00:15.00]随着音乐起伏\n[00:20.00]模糊效果测试\n[00:25.00]深层模糊效果\n[00:30.00]点击这一行跳转\n[00:35.00]End`;
+    this.lyricList = parseLrc(mockLrc);
+    this.currentLyricIndex = 0;
+  }
+
+  // --- 歌词页面构建器 ---
   @Builder
-  FullScreenPlayer() {
+  LyricPage() {
+    Column() {
+      if (this.lyricList.length === 0) {
+        Text("暂无歌词").fontColor(Color.Gray).margin({ top: 100 })
+      } else {
+        List({ scroller: this.lyricScroller, space: 20 }) {
+          // 顶部占位，让第一句能滚到中间
+          ListItem().height('40%')
+
+          ForEach(this.lyricList, (line: LyricLine, index: number) => {
+            ListItem() {
+              Text(line.text)
+                .width('100%')
+                .textAlign(TextAlign.Center)
+                .fontWeight(index === this.currentLyricIndex ? FontWeight.Bold : FontWeight.Normal)
+                .fontSize(index === this.currentLyricIndex ? 24 : 18)
+                .fontColor(index === this.currentLyricIndex ? Color.White : 'rgba(255,255,255,0.6)')
+                // --- 视觉特效核心逻辑 ---
+                // 1. 模糊：距离越远，模糊程度越高 (limit 10)
+                .blur(Math.min(Math.abs(index - this.currentLyricIndex) * 1.5, 10))
+                // 2. 缩放：当前行最大，其他的稍微缩小
+                .scale({
+                  x: index === this.currentLyricIndex ? 1.0 : 0.9,
+                  y: index === this.currentLyricIndex ? 1.0 : 0.9
+                })
+                // 3. 动画：所有属性变化都带动画
+                .animation({ duration: 300, curve: Curve.EaseOut })
+                .onClick(() => {
+                  // 点击跳转播放
+                  avPlayerManage.jumpToPlay(line.time);
+                  this.musicState.isPlay = true;
+                })
+            }
+          })
+
+          // 底部占位
+          ListItem().height('40%')
+        }
+        .width('100%')
+        .height('100%')
+        .scrollBar(BarState.Off) // 隐藏滚动条更美观
+        .edgeEffect(EdgeEffect.Fade)
+      }
+    }
+    .width('100%')
+    .height('100%')
+    .padding({ left: 30, right: 30 })
+  }
+
+  // --- 封面与控制页面 ---
+  @Builder
+  CoverAndControlsPage() {
     Column() {
       // --- 把手 ---
       Button({ type: ButtonType.Capsule, stateEffect: false })
@@ -72,6 +165,7 @@ export struct MiniPlayBar {
         Image($r('app.media.ic_prev')).width(40).fillColor(Color.White).onClick(() => avPlayerManage.preSong())
         Image(this.musicState.isPlay ? $r('app.media.ic_paused') : $r('app.media.ic_play'))
           .width(70)
+          .height(70)
           .fillColor(Color.White)
           .onClick(() => avPlayerManage.stopOrContinueSong())
         Image($r('app.media.ic_next')).width(40).fillColor(Color.White).onClick(() => avPlayerManage.nextSong())
@@ -79,7 +173,6 @@ export struct MiniPlayBar {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#1c1c1e')
     .justifyContent(FlexAlign.Center)
     .alignItems(HorizontalAlign.Center)
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
@@ -91,6 +184,39 @@ export struct MiniPlayBar {
     )
   }
 
+  // --- 全屏播放器主入口 ---
+  @Builder
+  FullScreenPlayer() {
+    Stack({ alignContent: Alignment.Bottom }) {
+      // 背景层 (当前封面做高斯模糊背景)
+      Image(this.musicState.img)
+        .width('100%')
+        .height('100%')
+        .blur(80) // 极强的背景模糊
+        .opacity(0.5)
+
+      // 黑色遮罩，保证文字清晰度
+      Column().width('100%').height('100%').backgroundColor('rgba(0,0,0,0.5)')
+
+      // 内容层：使用 Swiper 实现左右滑动切换
+      Swiper() {
+        // 第一页：封面和控制
+        this.CoverAndControlsPage()
+
+        // 第二页：歌词
+        this.LyricPage()
+      }
+      .loop(false) // 不循环
+      .indicator(true) // 显示底部的指示点
+      .width('100%')
+      .height('100%')
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor('#1c1c1e')
+  }
+
+  // --- 迷你播放条构建 ---
   build() {
     Row() {
       // 小封面
@@ -101,7 +227,7 @@ export struct MiniPlayBar {
         .margin({ left: 20, right: 12 })
         .backgroundColor('#eee')
 
-      // 信息
+      // 歌曲信息
       Text(this.musicState.name || "未在播放")
         .fontSize(16)
         .fontColor(Color.Black)
