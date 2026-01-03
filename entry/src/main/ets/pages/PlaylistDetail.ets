@@ -1,19 +1,26 @@
 // src/main/ets/pages/PlaylistDetail.ets
 import { promptAction, router } from '@kit.ArkUI';
 import { SongItemType } from '../type/SongItemType';
+import { avPlayerManage } from '../utils/avPlayerMusic';
+import RdbManager from '../utils/RdbManager';
+
+interface DialogResult {
+  index: number;
+}
 
 @Entry
 @Component
 struct PlaylistDetail {
   @State playlistName: string = '未命名歌单';
-  @State songs: SongItemType[] = [];
+  @State songs: SongItemType[] = [];  // 歌单中的歌曲
   @State showAddSongDialog: boolean = false;
   @State searchKeyword: string = '';
+  @State searchResults: SongItemType[] = [];  // 用于对话框的搜索结果
+  @State isLoading: boolean = false;  // 加载状态
 
   aboutToAppear(): void {
-    // 避免 any/unknown：只按字符串读取参数
-    const params = router.getParams() as Record<string, string> | undefined;
-    const name = params?.['playlistName'];
+    const params = router.getParams() as Record<string, string>;
+    const name = params?.playlistName;
     this.playlistName = (name && name.trim().length > 0) ? name : '未命名歌单';
     this.loadPlaylistSongs();
   }
@@ -24,44 +31,61 @@ struct PlaylistDetail {
   }
 
   private isSongInPlaylist(songId: string): boolean {
-    return this.songs.some(song => song.id === songId);
+    return this.songs.some((item: SongItemType) => item.id === songId);
   }
 
-  private getAvailableSongs(): SongItemType[] {
-    const allSongs = AppStorage.get<SongItemType[]>('allSongs') ?? [];
-    return allSongs.filter(song => !this.isSongInPlaylist(song.id));
-  }
+  // 从数据库搜索歌曲
+  private async searchSongsFromDB(): Promise<void> {
+    if (!this.searchKeyword.trim()) {
+      this.searchResults = [];  // 清空搜索结果
+      return;
+    }
 
-  private getFilteredSongs(): SongItemType[] {
-    const availableSongs = this.getAvailableSongs();
-    const kw = this.searchKeyword.trim().toLowerCase();
-    if (!kw) return availableSongs;
-
-    return availableSongs.filter(song =>
-    song.name.toLowerCase().includes(kw) || song.author.toLowerCase().includes(kw)
-    );
+    this.isLoading = true;
+    try {
+      const results = await RdbManager.searchSongs(this.searchKeyword);
+      // 过滤掉已经在歌单中的歌曲
+      this.searchResults = results.filter(song => !this.isSongInPlaylist(song.id));
+    } catch (error) {
+      console.error('搜索歌曲失败:', error);
+      this.searchResults = [];
+      promptAction.showToast({
+        message: '搜索失败，请重试',
+        duration: 1500
+      });
+    } finally {
+      this.isLoading = false;
+    }
   }
 
   private getTotalDuration(): string {
     if (this.songs.length === 0) return '0分钟';
-
-    const estimatedMinutes = this.songs.length * 3.5;
-    const hours = Math.floor(estimatedMinutes / 60);
-    const minutes = Math.floor(estimatedMinutes % 60);
-
-    return hours > 0 ? `${hours}小时${minutes}分钟` : `${minutes}分钟`;
+    const totalMinutes: number = this.songs.length * 3.5;
+    const h: number = Math.floor(totalMinutes / 60);
+    const m: number = Math.floor(totalMinutes % 60);
+    return h > 0 ? `${h}小时${m}分钟` : `${m}分钟`;
   }
 
+  /** 添加歌曲到歌单 */
   private addSongToPlaylist(song: SongItemType): void {
-    if (this.isSongInPlaylist(song.id)) return;
+    if (this.isSongInPlaylist(song.id)) {
+      promptAction.showToast({
+        message: '歌曲已在歌单中',
+        duration: 1000
+      });
+      return;
+    }
 
-    const updatedSongs = [...this.songs, song];
-    this.songs = updatedSongs;
-    AppStorage.set(`playlist_${this.playlistName}`, updatedSongs);
+    const updated: SongItemType[] = [...this.songs, song];
+    this.songs = updated;
+    AppStorage.set(`playlist_${this.playlistName}`, updated);
+
+    // 从搜索结果中移除已添加的歌曲
+    this.searchResults = this.searchResults.filter(s => s.id !== song.id);
 
     promptAction.showToast({
-      message: `"${song.name}" 已添加到歌单`,
-      duration: 2000
+      message: `已添加「${song.name}」`,
+      duration: 1500
     });
   }
 
@@ -70,41 +94,32 @@ struct PlaylistDetail {
       title: '确认移除',
       message: '确定要从歌单中移除这首歌吗？',
       buttons: [
-        { text: '取消', color: '#666666' },
+        { text: '取消', color: '#666' },
         { text: '移除', color: '#FF6B6B' }
       ]
-    }).then(result => {
-      if (result.index === 1) {
-        const updatedSongs = this.songs.filter(song => song.id !== songId);
-        this.songs = updatedSongs;
-        AppStorage.set(`playlist_${this.playlistName}`, updatedSongs);
+    }).then((res: DialogResult) => {
+      if (res.index === 1) {
+        const songToRemove = this.songs.find(song => song.id === songId);
+        const updated: SongItemType[] = this.songs.filter((item: SongItemType) => item.id !== songId);
+        this.songs = updated;
+        AppStorage.set(`playlist_${this.playlistName}`, updated);
 
         promptAction.showToast({
-          message: '歌曲已从歌单移除',
-          duration: 2000
+          message: `已移除「${songToRemove?.name}」`,
+          duration: 1500
         });
       }
-    });
-  }
-
-  private playSong(song: SongItemType): void {
-    AppStorage.set('currentSong', song);
-    AppStorage.set('isPlaying', true);
-
-    promptAction.showToast({
-      message: `正在播放: ${song.name}`,
-      duration: 1500
     });
   }
 
   @Builder
   BuildSongItem(song: SongItemType, index: number) {
     Row({ space: 12 }) {
-      Text((index + 1).toString())
-        .fontSize(14)
-        .fontColor('#666')
+      Text(`${index + 1}`)
         .width(30)
-        .textAlign(TextAlign.Center);
+        .textAlign(TextAlign.Center)
+        .fontSize(14)
+        .fontColor('#666');
 
       Image(song.img)
         .width(50)
@@ -128,13 +143,11 @@ struct PlaylistDetail {
       .layoutWeight(1)
       .alignItems(HorizontalAlign.Start);
 
-      // ArkTS ClickEvent 没有 stopPropagation：用“按钮先于行点击执行 + 提前返回”的方式规避
-      // 同时给按钮一个更高的点击优先级（通过独立 clickable 区域）
       Button('移除')
         .fontSize(12)
         .backgroundColor('#FF6B6B')
         .fontColor(Color.White)
-        .onClick(() => {
+        .onClick((): void => {
           this.removeSongFromPlaylist(song.id);
         });
     }
@@ -142,77 +155,110 @@ struct PlaylistDetail {
     .padding({ left: 16, right: 16, top: 12, bottom: 12 })
     .backgroundColor(Color.White)
     .borderRadius(8)
-    .onClick(() => {
-      // 点击 Row 的空白区域才播放；按钮点击不会触发到这里（ArkUI 默认不会冒泡到父 onClick）
-      this.playSong(song);
+    .onClick((): void => {
+      avPlayerManage.playResources(song);
     });
   }
 
   @Builder
   BuildAddSongDialog() {
     Column() {
-      Text('添加歌曲到歌单')
+      Text('添加歌曲')
         .fontSize(18)
         .fontWeight(FontWeight.Bold)
-        .margin({ bottom: 20 });
+        .margin({ bottom: 16 });
 
-      TextInput({ placeholder: '搜索歌曲...' })
+      TextInput({ placeholder: '搜索歌曲' })
         .width('100%')
-        .height(40)
-        .backgroundColor('#F5F5F5')
-        .padding(10)
-        .margin({ bottom: 15 })
-        .borderRadius(8)
-        .onChange((value: string) => {
+        .onChange((value: string): void => {
           this.searchKeyword = value;
-        });
+          // 防抖搜索，避免频繁搜索
+          setTimeout(() => {
+            this.searchSongsFromDB();
+          }, 300);
+        })
+        .margin({ bottom: 12 });
 
-      if (this.getFilteredSongs().length > 0) {
+      if (this.isLoading) {
+        // 加载中状态
+        Column() {
+          LoadingProgress()
+            .width(30)
+            .height(30)
+            .color('#E23241');
+          Text('搜索中...')
+            .fontSize(14)
+            .fontColor('#999')
+            .margin({ top: 10 });
+        }
+        .layoutWeight(1)
+        .justifyContent(FlexAlign.Center);
+      } else if (this.searchResults.length > 0) {
+        // 显示搜索结果
         List({ space: 8 }) {
-          ForEach(this.getFilteredSongs(), (song: SongItemType) => {
-            ListItem() {
-              Row({ space: 12 }) {
-                Image(song.img)
-                  .width(40)
-                  .height(40)
-                  .borderRadius(4)
-                  .objectFit(ImageFit.Contain);
+          ForEach(
+            this.searchResults,
+            (song: SongItemType): void => {
+              ListItem() {
+                Row({ space: 12 }) {
+                  Image(song.img)
+                    .width(40)
+                    .height(40)
+                    .borderRadius(6)
+                    .objectFit(ImageFit.Contain);
 
-                Column({ space: 2 }) {
-                  Text(song.name)
-                    .fontSize(14)
-                    .fontColor(Color.Black)
-                    .maxLines(1)
-                    .textOverflow({ overflow: TextOverflow.Ellipsis });
+                  Column({ space: 2 }) {
+                    Text(song.name)
+                      .fontSize(14)
+                      .fontColor(Color.Black)
+                      .maxLines(1)
+                      .textOverflow({ overflow: TextOverflow.Ellipsis });
 
-                  Text(song.author)
+                    Text(song.author)
+                      .fontSize(12)
+                      .fontColor('#666')
+                      .maxLines(1)
+                      .textOverflow({ overflow: TextOverflow.Ellipsis });
+                  }
+                  .layoutWeight(1)
+                  .alignItems(HorizontalAlign.Start);
+
+                  Button('添加')
                     .fontSize(12)
-                    .fontColor('#666')
-                    .maxLines(1)
-                    .textOverflow({ overflow: TextOverflow.Ellipsis });
+                    .backgroundColor('#E23241')
+                    .fontColor(Color.White)
+                    .onClick((): void => {
+                      this.addSongToPlaylist(song);
+                    });
                 }
-                .layoutWeight(1)
-                .alignItems(HorizontalAlign.Start);
-
-                Button('添加')
-                  .fontSize(12)
-                  .backgroundColor('#E23241')
-                  .fontColor(Color.White)
-                  .onClick(() => {
-                    this.addSongToPlaylist(song);
-                  });
+                .width('100%')
+                .padding(12);
               }
-              .width('100%')
-              .padding(12);
-            }
-          }, (song: SongItemType) => song.id);
+            },
+            (song: SongItemType): string => song.id
+          );
         }
         .layoutWeight(1);
       } else {
+        // 无结果状态
         Column() {
-          Text('暂无可用歌曲')
-            .fontSize(14)
-            .fontColor('#999');
+          if (this.searchKeyword.trim()) {
+            Text('未找到相关歌曲')
+              .fontSize(14)
+              .fontColor('#999');
+            Text('请尝试其他关键词')
+              .fontSize(12)
+              .fontColor('#CCC')
+              .margin({ top: 8 });
+          } else {
+            Text('输入关键词搜索歌曲')
+              .fontSize(14)
+              .fontColor('#999');
+            Text('支持歌曲名和歌手搜索')
+              .fontSize(12)
+              .fontColor('#CCC')
+              .margin({ top: 8 });
+          }
         }
         .layoutWeight(1)
         .justifyContent(FlexAlign.Center);
@@ -224,9 +270,10 @@ struct PlaylistDetail {
           .height(44)
           .backgroundColor('#F0F0F0')
           .fontColor('#666')
-          .onClick(() => {
+          .onClick((): void => {
             this.showAddSongDialog = false;
             this.searchKeyword = '';
+            this.searchResults = [];
           });
 
         Button('完成')
@@ -234,9 +281,10 @@ struct PlaylistDetail {
           .height(44)
           .backgroundColor('#E23241')
           .fontColor(Color.White)
-          .onClick(() => {
+          .onClick((): void => {
             this.showAddSongDialog = false;
             this.searchKeyword = '';
+            this.searchResults = [];
           });
       }
       .width('100%')
@@ -250,9 +298,7 @@ struct PlaylistDetail {
   }
 
   build() {
-    // 用 Stack 实现遮罩 + 弹窗；不使用 stopPropagation，避免类型报错
     Stack() {
-      // 主内容
       Column() {
         // 头部
         Row({ space: 10 }) {
@@ -262,73 +308,77 @@ struct PlaylistDetail {
             .height(30)
             .backgroundColor(Color.Transparent)
             .fontColor('#333')
-            .onClick(() => {
+            .onClick((): void => {
               router.back();
             });
 
           Text(this.playlistName)
+            .layoutWeight(1)
             .fontSize(20)
-            .fontWeight(FontWeight.Bold)
-            .layoutWeight(1);
+            .fontWeight(FontWeight.Bold);
 
           Button('添加歌曲')
             .fontSize(14)
-            .onClick(() => {
+            .onClick((): void => {
               this.showAddSongDialog = true;
+              this.searchResults = [];
             });
         }
-        .width('100%')
-        .padding({ left: 16, right: 16, top: 12, bottom: 12 })
+        .padding(12)
         .backgroundColor(Color.White);
 
         // 统计信息
-        Row({ space: 15 }) {
-          Column() {
+        Row({ space: 20 }) {
+          Column({ space: 4 }) {
             Text(this.songs.length.toString())
-              .fontSize(18)
-              .fontWeight(FontWeight.Bold)
-              .fontColor('#E23241');
-            Text('总歌曲')
+              .fontSize(20)
+              .fontColor('#E23241')
+              .fontWeight(FontWeight.Bold);
+            Text('歌曲数')
               .fontSize(12)
               .fontColor('#666');
           }
 
-          Column() {
+          Column({ space: 4 }) {
             Text(this.getTotalDuration())
-              .fontSize(18)
-              .fontWeight(FontWeight.Bold)
-              .fontColor('#E23241');
+              .fontSize(20)
+              .fontColor('#E23241')
+              .fontWeight(FontWeight.Bold);
             Text('总时长')
               .fontSize(12)
               .fontColor('#666');
           }
         }
         .width('100%')
-        .padding(16)
-        .backgroundColor('#F8F8F8');
+        .padding(12)
+        .backgroundColor('#F8F8F8')
+        .justifyContent(FlexAlign.SpaceAround);
 
         // 歌曲列表
         if (this.songs.length > 0) {
           List({ space: 1 }) {
-            ForEach(this.songs, (song: SongItemType, index: number) => {
-              ListItem() {
-                this.BuildSongItem(song, index);
-              }
-            }, (song: SongItemType) => song.id);
+            ForEach(
+              this.songs,
+              (song: SongItemType, index: number): void => {
+                ListItem() {
+                  this.BuildSongItem(song, index);
+                }
+              },
+              (song: SongItemType): string => song.id
+            );
           }
           .layoutWeight(1);
         } else {
+          // 空状态
           Column() {
             Text('♪')
               .fontSize(60)
               .fontColor('#999')
-              .margin({ bottom: 20 });
-
+              .margin({ bottom: 16 });
             Text('歌单暂无歌曲')
               .fontSize(16)
               .fontColor('#999')
-              .margin({ bottom: 8 });
-
+              .margin({ bottom: 6 });
             Text('点击"添加歌曲"开始构建您的歌单')
               .fontSize(14)
               .fontColor('#CCC');
@@ -341,20 +391,18 @@ struct PlaylistDetail {
       .height('100%')
       .backgroundColor('#F5F5F5');
 
-      // 弹窗（遮罩 + 内容）
+      // 对话框遮罩
       if (this.showAddSongDialog) {
-        // 遮罩：点击关闭
         Column()
+          .backgroundColor('#00000066')
           .width('100%')
           .height('100%')
-          .backgroundColor('#00000066')
-          .onClick(() => {
+          .onClick((): void => {
             this.showAddSongDialog = false;
             this.searchKeyword = '';
+            this.searchResults = [];
           });
 
-        // 弹窗内容：不写 onClick，避免“点击弹窗也关闭”的问题
-        // （Stack 中后绘制的组件会拦截点击，不会传到遮罩）
         Column() {
           this.BuildAddSongDialog();
         }
