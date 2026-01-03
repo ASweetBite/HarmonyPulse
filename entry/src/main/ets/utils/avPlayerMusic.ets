@@ -5,6 +5,7 @@ import { AppStorageV2 } from '@kit.ArkUI'
 import { SessionManager } from './AVSessionManager'
 import { SongItemType } from '../type/SongItemType'
 import { fileIo as fs } from '@kit.CoreFileKit';
+import RdbManager from './RdbManager'
 
 class avPlayerMusic {
 
@@ -210,6 +211,7 @@ class avPlayerMusic {
   }
 
   deleteSong(index: number) {
+    RdbManager.deleteSongById(this.GlobalMusic.songList[index].id)
     this.GlobalMusic.songList.splice(index, 1)
   }
 

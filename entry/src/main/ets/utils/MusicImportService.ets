@@ -7,6 +7,7 @@ import { BusinessError } from '@kit.BasicServicesKit'
 import { preferences } from '@kit.ArkData'
 import { SongItemType } from '../type/SongItemType'
 import { GlobalMusic } from '../type/GlobalMusic'
+import RdbManager from './RdbManager'
 
 const PREF_NAME = 'music_storage'
 const KEY_SONG_LIST = 'song_list'
@@ -30,12 +31,9 @@ export class MusicImportService {
         const song = await MusicImportService.importSingleFile(uri, context)
         if (song) {
           globalMusic.addSong(song)
+          RdbManager.insertSong(song)
         }
       }
-
-      // --- 关键改动：导入完成后持久化保存整个列表 ---
-      await MusicImportService.saveSongs(context, globalMusic.songList)
-      console.info('歌曲导入并持久化完成')
 
     } catch (err) {
       const error = err as BusinessError

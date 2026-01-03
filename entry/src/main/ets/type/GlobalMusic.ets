@@ -39,13 +39,8 @@ export class GlobalMusic {
    * @param song 新增的歌曲对象
    */
   addSong(song: SongItemType) {
-    // 1. 添加到列表
-    // 注意：在 V2 中，修改数组建议重新赋值或者使用 push，
-    // 但为了确保视图绝对刷新，重新赋值引用是最稳妥的：
     this.songList = [...this.songList, song];
 
-    // 2. (可选) 添加后是否自动切换到这首歌？
-    // this.resetToMusic(this.playList.length - 1);
   }
 
   /**

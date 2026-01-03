@@ -114,8 +114,6 @@ struct MusicIndex {
           const context = getContext(this) as common.UIAbilityContext;
           // 导入歌曲
           await MusicImportService.importFromPicker(context, this.globalMusic);
-          // 导入函数内部应该已经执行了 saveSongs，这里为了保险也可以再补一次
-          await MusicImportService.saveSongs(context, this.globalMusic.songList);
         })
 
         // 底部播放器
