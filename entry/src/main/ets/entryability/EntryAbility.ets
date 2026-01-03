@@ -19,7 +19,6 @@ export default class EntryAbility extends UIAbility {
         JSON.stringify(err))
     }
 
-    // ⭐⭐⭐ 关键：注入 UIAbilityContext ⭐⭐⭐
     avPlayerManage.setContext(this.context)
 
     hilog.info(DOMAIN, 'testTag', 'Ability onCreate')

@@ -1,6 +1,6 @@
 // src/main/ets/pages/MusicIndex.ets
 import { AppStorageV2, PersistenceV2 } from '@kit.ArkUI';
-import { router } from '@kit.ArkUI'; // 添加路由导入
+import { router } from '@kit.ArkUI';
 import { GlobalMusic } from '../type/GlobalMusic';
 import { songsList } from '../type/data';
 import { MiniPlayBar } from './components/MiniPlayBar';
@@ -9,6 +9,7 @@ import { PlaylistView } from './views/PlaylistView';
 import { common } from '@kit.AbilityKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { MusicImportService } from '../utils/MusicImportService';
+import RdbManager from '../utils/RdbManager';
 
 @Builder
 export function layoutBuilder() {
@@ -30,20 +31,34 @@ struct MusicIndex {
     const context = getContext(this) as common.UIAbilityContext;
 
     try {
-      // 1. 先尝试从首选项（Preferences）加载永久存储的歌曲
-      await MusicImportService.loadSongs(context, this.globalMusic);
+      // 1. 初始化数据库并建表
+      await RdbManager.initRdb(context);
+      console.info('MusicPlayer: 数据库初始化完成');
 
-      // 2. 逻辑判断：如果缓存里一首歌都没有，说明是第一次安装或清空了，此时才加载默认列表
-      if (this.globalMusic.songList.length === 0) {
-        console.info('MusicPlayer: 缓存为空，加载默认内置歌曲');
-        this.globalMusic.initData(songsList);
-        // 加载了默认数据后，也可以顺手存一下
-        await MusicImportService.saveSongs(context, this.globalMusic.songList);
-      } else {
-        console.info(`MusicPlayer: 成功从持久化存储恢复了 ${this.globalMusic.songList.length} 首歌`);
+      // 2. 从数据库获取所有歌曲（代替原来的 loadSongs）
+      let allSongs = await RdbManager.getAllSongs();
+
+      // 3. 判断是否是初次运行：如果数据库里一首歌都没有，则导入默认写死的数据
+      if (allSongs.length === 0) {
+        console.info('MusicPlayer: 数据库为空，正在导入默认内置歌曲');
+
+        // 注意：假设你的 songsList 数据结构需要转换，或者直接传入
+        // 这里可以直接把默认数据存入数据库
+        for (let song of songsList) {
+          await RdbManager.insertSong(song);
+        }
+
+        // 重新获取数据
+        allSongs = await RdbManager.getAllSongs();
       }
+
+      // 4. 将数据库中的数据同步到全局状态 globalMusic，驱动 UI 显示
+      this.globalMusic.songList = allSongs;
+      console.info(`MusicPlayer: 成功从数据库加载了 ${allSongs.length} 首歌`);
+
     } catch (e) {
-      console.error('MusicPlayer: 初始化数据失败', JSON.stringify(e));
+      const err = e as BusinessError;
+      console.error(`MusicPlayer: 初始化失败. Code: ${err.code}, Msg: ${err.message}`);
     }
   }
 
