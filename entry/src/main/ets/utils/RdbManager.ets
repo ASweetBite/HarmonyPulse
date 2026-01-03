@@ -189,6 +189,30 @@ class RdbManager {
     playlistSet.close();
     return result;
   }
+  /**
+   * 根据 ID 从数据库删除单首歌曲
+   */
+  async deleteSongById(songId: string): Promise<boolean> {
+    if (!this.rdbStore) return false;
+
+    try {
+      let predicates = new relationalStore.RdbPredicates(this.tableNameSong);
+      predicates.equalTo('id', songId);
+
+      // 同时也删除映射表中的关联记录，防止产生脏数据
+      let mapPredicates = new relationalStore.RdbPredicates(this.tableNameMap);
+      mapPredicates.equalTo('song_id', songId);
+      await this.rdbStore.delete(mapPredicates);
+
+      const rows = await this.rdbStore.delete(predicates);
+      return rows > 0;
+    } catch (e) {
+      console.error('Database delete song failed', e);
+      return false;
+    }
+  }
+
+
   // ==================== 歌单 (Playlist) 操作 ====================
 
   /**

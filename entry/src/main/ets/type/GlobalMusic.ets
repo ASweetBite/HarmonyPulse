@@ -17,37 +17,43 @@ export class GlobalMusic {
   // 核心：播放列表
   //@Trace playList: SongItemType[] = []
   @Trace songList: SongItemType[] = []; // 必须加 @Trace
+  songs: SongItemType[] = []
 
   /**
-   * 初始化数据 (加载静态资源)
-   * @param list 原始歌曲列表
+   * 初始化数据 (改为由外部传入数据库查询结果)
    */
   initData(list: SongItemType[]) {
-    // 如果已经有数据了，可能不需要重新覆盖，看需求
-    if (this.songList.length > 0) return;
-
-    this.songList = [...list]; // 使用扩展运算符确保深拷贝引用
-
-    // 如果列表不为空，默认选中第一首（但不播放）
-    if (this.songList.length > 0) {
+    this.songList = [...list];
+    if (this.songList.length > 0 && this.currentID === "") {
       this.resetToMusic(0);
     }
   }
 
   /**
-   * 用户添加歌曲逻辑
-   * @param song 新增的歌曲对象
+   * 添加歌曲：使用解构赋值确保 V2 的 @Trace 能够监听到引用变化
    */
   addSong(song: SongItemType) {
-    // 1. 添加到列表
-    // 注意：在 V2 中，修改数组建议重新赋值或者使用 push，
-    // 但为了确保视图绝对刷新，重新赋值引用是最稳妥的：
     this.songList = [...this.songList, song];
-
-    // 2. (可选) 添加后是否自动切换到这首歌？
-    // this.resetToMusic(this.playList.length - 1);
+    // 如果是第一首歌，自动显示播放栏
+    if (this.songList.length === 1) {
+      this.resetToMusic(0);
+    }
   }
-
+  /**
+   * 【新增】删除歌曲：从内存列表中移除，触发 UI 刷新
+   */
+  removeSongById(id: string) {
+    this.songList = this.songList.filter(item => item.id !== id);
+    // 如果删除了当前正在播放的歌，需要处理索引重置逻辑（可选）
+    if (this.currentID === id) {
+      this.isPlay = false;
+      if (this.songList.length > 0) {
+        this.resetToMusic(0);
+      } else {
+        this.isShowPlayBar = false;
+      }
+    }
+  }
   /**
    * 切换当前选中的音乐信息（不包含播放逻辑，只更新状态）
    */

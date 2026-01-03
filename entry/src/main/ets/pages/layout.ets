@@ -112,10 +112,13 @@ struct MusicIndex {
         .shadow({ radius: 10, color: '#99E23241' })
         .onClick(async () => {
           const context = getContext(this) as common.UIAbilityContext;
-          // 导入歌曲
+          // --- 修改点：只需调用导入方法 ---
+          // 内部 MusicImportService.importFromPicker 已经实现了：
+          // 解析 -> RdbManager.insertSong -> globalMusic.addSong
           await MusicImportService.importFromPicker(context, this.globalMusic);
-          // 导入函数内部应该已经执行了 saveSongs，这里为了保险也可以再补一次
-          await MusicImportService.saveSongs(context, this.globalMusic.songList);
+
+          // --- 删掉下面这一行，不再需要 saveSongs ---
+          // await MusicImportService.saveSongs(...);
         })
 
         // 底部播放器
