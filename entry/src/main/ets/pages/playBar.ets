@@ -114,7 +114,7 @@ struct playBar {
   @Builder
   playlist() {
   List(){
-    ForEach(this.playState.playList,(item:SongItemType,index:number)=>{
+    ForEach(this.playState.songList,(item:SongItemType,index:number)=>{
       ListItem() {
         Row() {
           Row() {

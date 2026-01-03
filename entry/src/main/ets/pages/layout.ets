@@ -24,11 +24,29 @@ struct MusicIndex {
   private swiperController: SwiperController = new SwiperController();
 
   // 页面加载时初始化数据
-  aboutToAppear(): void {
-    // 调用我们在 Class 中封装好的初始化方法
-    // 这样 UI 代码就不用关心怎么赋值了
-    this.globalMusic.initData(songsList);
+  // 修改为 async，确保加载顺序
+  async aboutToAppear() {
+    console.info('MusicPlayer: 页面开始初始化');
+    const context = getContext(this) as common.UIAbilityContext;
+
+    try {
+      // 1. 先尝试从首选项（Preferences）加载永久存储的歌曲
+      await MusicImportService.loadSongs(context, this.globalMusic);
+
+      // 2. 逻辑判断：如果缓存里一首歌都没有，说明是第一次安装或清空了，此时才加载默认列表
+      if (this.globalMusic.songList.length === 0) {
+        console.info('MusicPlayer: 缓存为空，加载默认内置歌曲');
+        this.globalMusic.initData(songsList);
+        // 加载了默认数据后，也可以顺手存一下
+        await MusicImportService.saveSongs(context, this.globalMusic.songList);
+      } else {
+        console.info(`MusicPlayer: 成功从持久化存储恢复了 ${this.globalMusic.songList.length} 首歌`);
+      }
+    } catch (e) {
+      console.error('MusicPlayer: 初始化数据失败', JSON.stringify(e));
+    }
   }
+
 
   //处理歌单点击跳转
   private handlePlaylistSelected(playlistName: string) {
@@ -37,7 +55,7 @@ struct MusicIndex {
       url: 'pages/PlaylistDetail', // 目标页面路径
       params: {
         playlistName: playlistName,
-        songCount: this.globalMusic.playList.length // 传递歌曲数量
+        songCount: this.globalMusic.songList.length // 传递歌曲数量
       }
     }).then(() => {
       console.info(`跳转到歌单详情页: ${playlistName}`);
@@ -77,9 +95,12 @@ struct MusicIndex {
         .position({ x: '80%', y: '75%' }) // 悬浮在右下角
         .backgroundColor('#E23241')
         .shadow({ radius: 10, color: '#99E23241' })
-        .onClick(() => {
-          const context = getContext(this) as common.UIAbilityContext
-          MusicImportService.importFromPicker(context, this.globalMusic);
+        .onClick(async () => {
+          const context = getContext(this) as common.UIAbilityContext;
+          // 导入歌曲
+          await MusicImportService.importFromPicker(context, this.globalMusic);
+          // 导入函数内部应该已经执行了 saveSongs，这里为了保险也可以再补一次
+          await MusicImportService.saveSongs(context, this.globalMusic.songList);
         })
 
         // 底部播放器

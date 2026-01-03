@@ -15,7 +15,8 @@ export class GlobalMusic {
   @Trace isShowPlayBar: boolean = false
 
   // 核心：播放列表
-  @Trace playList: SongItemType[] = []
+  //@Trace playList: SongItemType[] = []
+  @Trace songList: SongItemType[] = []; // 必须加 @Trace
 
   /**
    * 初始化数据 (加载静态资源)
@@ -23,12 +24,12 @@ export class GlobalMusic {
    */
   initData(list: SongItemType[]) {
     // 如果已经有数据了，可能不需要重新覆盖，看需求
-    if (this.playList.length > 0) return;
+    if (this.songList.length > 0) return;
 
-    this.playList = [...list]; // 使用扩展运算符确保深拷贝引用
+    this.songList = [...list]; // 使用扩展运算符确保深拷贝引用
 
     // 如果列表不为空，默认选中第一首（但不播放）
-    if (this.playList.length > 0) {
+    if (this.songList.length > 0) {
       this.resetToMusic(0);
     }
   }
@@ -41,7 +42,7 @@ export class GlobalMusic {
     // 1. 添加到列表
     // 注意：在 V2 中，修改数组建议重新赋值或者使用 push，
     // 但为了确保视图绝对刷新，重新赋值引用是最稳妥的：
-    this.playList = [...this.playList, song];
+    this.songList = [...this.songList, song];
 
     // 2. (可选) 添加后是否自动切换到这首歌？
     // this.resetToMusic(this.playList.length - 1);
@@ -51,7 +52,7 @@ export class GlobalMusic {
    * 切换当前选中的音乐信息（不包含播放逻辑，只更新状态）
    */
   private resetToMusic(index: number) {
-    const item = this.playList[index];
+    const item = this.songList[index];
     if (item) {
       this.currentMusic = index;
       this.currentID = item.id;
@@ -63,4 +64,5 @@ export class GlobalMusic {
       this.isShowPlayBar = true;
     }
   }
+
 }

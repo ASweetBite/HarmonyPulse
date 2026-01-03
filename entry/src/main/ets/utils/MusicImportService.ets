@@ -3,8 +3,13 @@ import { media } from '@kit.MediaKit'
 import { image } from '@kit.ImageKit'
 import { common } from '@kit.AbilityKit'
 import { BusinessError } from '@kit.BasicServicesKit'
+// 导入首选项模块
+import { preferences } from '@kit.ArkData'
 import { SongItemType } from '../type/SongItemType'
 import { GlobalMusic } from '../type/GlobalMusic'
+
+const PREF_NAME = 'music_storage'
+const KEY_SONG_LIST = 'song_list'
 
 export class MusicImportService {
 
@@ -15,7 +20,6 @@ export class MusicImportService {
     context: common.UIAbilityContext,
     globalMusic: GlobalMusic
   ): Promise<void> {
-
     try {
       const audioPicker = new picker.AudioViewPicker()
       const uris = await audioPicker.select(new picker.AudioSelectOptions())
@@ -29,11 +33,51 @@ export class MusicImportService {
         }
       }
 
-      console.info('歌曲导入完成')
+      // --- 关键改动：导入完成后持久化保存整个列表 ---
+      await MusicImportService.saveSongs(context, globalMusic.songList)
+      console.info('歌曲导入并持久化完成')
 
     } catch (err) {
       const error = err as BusinessError
       console.error(`导入失败: ${error.code}, ${error.message}`)
+    }
+  }
+
+  /**
+   * 函数一：持久化保存歌曲列表
+   * 将 SongItemType 数组序列化为 JSON 字符串存入首选项
+   */
+  static async saveSongs(context: common.UIAbilityContext, songs: SongItemType[]): Promise<void> {
+    try {
+      const pref = await preferences.getPreferences(context, PREF_NAME)
+      // 将数组转为字符串存储
+      await pref.put(KEY_SONG_LIST, JSON.stringify(songs))
+      // flush 确保数据写入磁盘
+      await pref.flush()
+    } catch (e) {
+      console.error('保存歌曲列表失败', JSON.stringify(e))
+    }
+  }
+
+  /**
+   * 函数二：从首选项恢复歌曲列表
+   * 在 App 启动（如 EntryAbility 或主页 Entry 组件）时调用
+   */
+  static async loadSongs(context: common.UIAbilityContext, globalMusic: GlobalMusic): Promise<void> {
+    try {
+      const pref = await preferences.getPreferences(context, PREF_NAME)
+      const jsonStr = await pref.get(KEY_SONG_LIST, '[]') as string
+      const list = JSON.parse(jsonStr) as SongItemType[]
+
+      if (list && list.length > 0) {
+        // 清理当前内存列表（视业务而定），然后重新添加
+        list.forEach(item => {
+          globalMusic.addSong(item)
+        })
+        console.info(`成功恢复 ${list.length} 首歌曲`)
+      }
+    } catch (e) {
+      console.error('读取歌曲列表失败', JSON.stringify(e))
     }
   }
 
@@ -45,7 +89,6 @@ export class MusicImportService {
     context: common.UIAbilityContext
   ): Promise<SongItemType | null> {
 
-    // ---------- 1. 解析文件名 ----------
     const decodeUri = decodeURIComponent(uri)
     const fullName = decodeUri.substring(decodeUri.lastIndexOf('/') + 1)
     const dotIndex = fullName.lastIndexOf('.')
@@ -53,7 +96,6 @@ export class MusicImportService {
     const baseName = dotIndex !== -1 ? fullName.substring(0, dotIndex) : fullName
     const ext = dotIndex !== -1 ? fullName.substring(dotIndex) : '.mp3'
 
-    // ---------- 2. 拷贝到沙箱 ----------
     const newFileName = `${Date.now()}${ext}`
     const destPath = `${context.filesDir}/${newFileName}`
 
@@ -63,7 +105,6 @@ export class MusicImportService {
     fs.closeSync(src)
     fs.closeSync(dest)
 
-    // ---------- 3. 解析元数据 ----------
     let title = baseName
     let artist = '未知艺术家'
     let coverUri = 'ic_music'
@@ -93,13 +134,15 @@ export class MusicImportService {
       if (targetFile) fs.closeSync(targetFile)
     }
 
-    // ---------- 4. 构造歌曲对象 ----------
+    // ---------- 适配新的 SongItemType 结构 ----------
     return {
       id: `user_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
       name: title,
       author: artist,
       img: coverUri,
-      fileName: newFileName
+      filePath: newFileName, // 存储沙箱内的文件名
+      lyricPath: '',         // 初始为空
+      hasLyric: false        // 初始为 false
     }
   }
 
@@ -110,7 +153,6 @@ export class MusicImportService {
     pixelMap: image.PixelMap,
     context: common.UIAbilityContext
   ): Promise<string> {
-
     const coverPath = `${context.filesDir}/cover_${Date.now()}.jpg`
     const file = fs.openSync(coverPath, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE)
 

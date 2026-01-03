@@ -13,7 +13,7 @@ struct musicList{
   @Local
    playState: GlobalMusic = AppStorageV2.connect(GlobalMusic, "GlobalMusic", () => new GlobalMusic())!
   @Local
-  songs: SongItemType[] = this.playState.playList
+  songs: SongItemType[] = this.playState.songList
 
   @Builder
   deleteButton(index: number) {

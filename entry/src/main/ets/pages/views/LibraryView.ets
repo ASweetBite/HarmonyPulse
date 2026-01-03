@@ -101,10 +101,10 @@ export struct LibraryView {
       Divider()
 
       List() {
-        ForEach(this.musicState.playList, (item: SongItemType, index: number) => {
+        ForEach(this.musicState.songList, (item: SongItemType, index: number) => {
           ListItem() {
             // 这里为了代码简洁，省略了 empty 判断逻辑，保留核心列表项
-            if (this.musicState.playList && this.musicState.playList.length > 0) {
+            if (this.musicState.songList && this.musicState.songList.length > 0) {
               Row() {
                 Image((item.img) || $r('app.media.ic_music'))
                   .width(50)

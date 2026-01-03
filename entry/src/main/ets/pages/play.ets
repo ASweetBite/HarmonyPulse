@@ -24,7 +24,7 @@ struct Play {
   @Local
   playState: GlobalMusic = this.GlobalMusic
   @Local
-  songs: SongItemType[] = this.GlobalMusic.playList
+  songs: SongItemType[] = this.GlobalMusic.songList
   angel: number = 0
   @Local
   playbackStatus: string = this.GlobalMusic.playbackStatus

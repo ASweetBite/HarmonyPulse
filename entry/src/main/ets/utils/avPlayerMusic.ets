@@ -46,7 +46,7 @@ class avPlayerMusic {
     this.avPlayer.on('durationUpdate', (duration: number) => {
       this.GlobalMusic.duration = duration
       SessionManager.SetMetaData(
-        this.GlobalMusic.playList[this.GlobalMusic.currentMusic]
+        this.GlobalMusic.songList[this.GlobalMusic.currentMusic]
       )
     })
 
@@ -73,7 +73,7 @@ class avPlayerMusic {
       if (song.id.startsWith('user_') || song.id.startsWith('local_')) {
 
         // --- 情况 A: 处理沙箱中的导入歌曲 ---
-        const filePath = `${this.context.filesDir}/${song.fileName}`;
+        const filePath = `${this.context.filesDir}/${song.filePath}`;
 
         // 检查文件是否存在
         if (fs.accessSync(filePath)) {
@@ -94,7 +94,7 @@ class avPlayerMusic {
 
         // --- 情况 B: 处理 rawfile 中的预置歌曲 ---
         try {
-          const fd = await this.context.resourceManager.getRawFd(song.fileName);
+          const fd = await this.context.resourceManager.getRawFd(song.filePath);
           this.avPlayer.fdSrc = {
             fd: fd.fd,
             offset: fd.offset,
@@ -121,7 +121,7 @@ class avPlayerMusic {
     this.GlobalMusic.time = 0
     this.GlobalMusic.duration = 0
 
-    const song = this.GlobalMusic.playList[this.GlobalMusic.currentMusic]
+    const song = this.GlobalMusic.songList[this.GlobalMusic.currentMusic]
 
     this.GlobalMusic.name = song.name
     this.GlobalMusic.author = song.author
@@ -135,12 +135,12 @@ class avPlayerMusic {
 
   /** 上一首 */
   preSong() {
-    if (this.GlobalMusic.playList.length === 0) return
+    if (this.GlobalMusic.songList.length === 0) return
 
     if (this.GlobalMusic.playbackStatus !== "单曲循环") {
       this.GlobalMusic.currentMusic =
-        (this.GlobalMusic.currentMusic - 1 + this.GlobalMusic.playList.length)
-          % this.GlobalMusic.playList.length
+        (this.GlobalMusic.currentMusic - 1 + this.GlobalMusic.songList.length)
+          % this.GlobalMusic.songList.length
 
       this.changePlay()
     } else {
@@ -152,20 +152,20 @@ class avPlayerMusic {
 
   /** 下一首 */
   nextSong() {
-    if (this.GlobalMusic.playList.length === 0) return
+    if (this.GlobalMusic.songList.length === 0) return
 
     if (this.GlobalMusic.playbackStatus === "顺序播放") {
       this.GlobalMusic.currentMusic =
-        (this.GlobalMusic.currentMusic + 1) % this.GlobalMusic.playList.length
+        (this.GlobalMusic.currentMusic + 1) % this.GlobalMusic.songList.length
 
       this.changePlay()
     } else if (this.GlobalMusic.playbackStatus === "单曲循环") {
       this.avPlayer?.play()
     } else {
       // 随机播放
-      let next = Math.floor(Math.random() * this.GlobalMusic.playList.length)
-      if (next === this.GlobalMusic.currentMusic && this.GlobalMusic.playList.length > 1) {
-        next = (next + 1) % this.GlobalMusic.playList.length
+      let next = Math.floor(Math.random() * this.GlobalMusic.songList.length)
+      if (next === this.GlobalMusic.currentMusic && this.GlobalMusic.songList.length > 1) {
+        next = (next + 1) % this.GlobalMusic.songList.length
       }
       this.GlobalMusic.currentMusic = next
       this.changePlay()
@@ -193,12 +193,12 @@ class avPlayerMusic {
   playResources(song: SongItemType) {
     SessionManager.startContinuousTask()
 
-    const index = this.GlobalMusic.playList.findIndex(item => item.id === song.id)
+    const index = this.GlobalMusic.songList.findIndex(item => item.id === song.id)
 
     if (index !== -1) {
       this.GlobalMusic.currentMusic = index
     } else {
-      this.GlobalMusic.playList.unshift(song)
+      this.GlobalMusic.songList.unshift(song)
       this.GlobalMusic.currentMusic = 0
     }
 
@@ -210,7 +210,7 @@ class avPlayerMusic {
   }
 
   deleteSong(index: number) {
-    this.GlobalMusic.playList.splice(index, 1)
+    this.GlobalMusic.songList.splice(index, 1)
   }
 
   async release() {
