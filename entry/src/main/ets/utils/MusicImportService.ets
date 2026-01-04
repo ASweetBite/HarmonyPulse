@@ -29,12 +29,17 @@ export class MusicImportService {
       if (!uris || uris.length === 0) return
 
       for (const uri of uris) {
-        const song = await MusicImportService.importSingleFile(uri, context)
+        // 【关键点1】调用处传 3 个参数
+        const song = await MusicImportService.importSingleFile(uri, context, globalMusic)
         if (song) {
           globalMusic.addSong(song)
           RdbManager.insertSong(song)
         }
       }
+
+      // --- 关键改动：导入完成后持久化保存整个列表 ---
+      await MusicImportService.saveSongs(context, globalMusic.songList)
+      console.info('歌曲导入并持久化完成')
 
     } catch (err) {
       const error = err as BusinessError
@@ -69,11 +74,7 @@ export class MusicImportService {
       const list = JSON.parse(jsonStr) as SongItemType[]
 
       if (list && list.length > 0) {
-        // 清理当前内存列表（视业务而定），然后重新添加
-        list.forEach(item => {
-          globalMusic.addSong(item)
-        })
-        console.info(`成功恢复 ${list.length} 首歌曲`)
+        list.forEach((item: SongItemType) => { globalMusic.addSong(item) })
       }
     } catch (e) {
       console.error('读取歌曲列表失败', JSON.stringify(e))
@@ -85,7 +86,8 @@ export class MusicImportService {
    */
   private static async importSingleFile(
     uri: string,
-    context: common.UIAbilityContext
+    context: common.UIAbilityContext,
+    globalMusic: GlobalMusic  // <--- 确保这一行存在！
   ): Promise<SongItemType | null> {
 
     const decodeUri = decodeURIComponent(uri)
@@ -95,6 +97,44 @@ export class MusicImportService {
     const baseName = dotIndex !== -1 ? fullName.substring(0, dotIndex) : fullName
     const ext = dotIndex !== -1 ? fullName.substring(dotIndex) : '.mp3'
 
+    // --- 去重逻辑 ---
+    let title: string = baseName
+    let artist: string = '未知艺术家'
+    let preExtractor: media.AVMetadataExtractor | undefined
+    let preSrcFile: fs.File | undefined
+
+    try {
+      preSrcFile = fs.openSync(uri, fs.OpenMode.READ_ONLY)
+      preExtractor = await media.createAVMetadataExtractor()
+      preExtractor.fdSrc = { fd: preSrcFile.fd }
+      const metadata = await preExtractor.fetchMetadata()
+
+      if (metadata.title?.trim()) title = metadata.title
+      if (metadata.artist?.trim()) artist = metadata.artist
+
+      // 【关键点3】检查 globalMusic.songList (因为你的类里主要用这个)
+      const currentList = globalMusic.songList
+      let isDuplicate = false
+      for (let i = 0; i < currentList.length; i++) {
+        const item: SongItemType = currentList[i]
+        if (item.name === title && item.author === artist) {
+          isDuplicate = true
+          break
+        }
+      }
+
+      if (isDuplicate) {
+        console.info(`[去重] 歌曲已存在: ${title}`)
+        return null
+      }
+    } catch (e) {
+      console.warn('查重阶段解析失败')
+    } finally {
+      if (preExtractor) await preExtractor.release()
+      if (preSrcFile) fs.closeSync(preSrcFile)
+    }
+
+    // --- 剩下的拷贝逻辑保持原样 ---
     const newFileName = `${Date.now()}${ext}`
     const destPath = `${context.filesDir}/${newFileName}`
 
@@ -104,10 +144,7 @@ export class MusicImportService {
     fs.closeSync(src)
     fs.closeSync(dest)
 
-    let title = baseName
-    let artist = '未知艺术家'
     let coverUri = ''
-
     let extractor: media.AVMetadataExtractor | undefined
     let targetFile: fs.File | undefined
 
@@ -115,17 +152,13 @@ export class MusicImportService {
       extractor = await media.createAVMetadataExtractor()
       targetFile = fs.openSync(destPath, fs.OpenMode.READ_ONLY)
       extractor.fdSrc = { fd: targetFile.fd }
-
       const metadata = await extractor.fetchMetadata()
-
       if (metadata.title?.trim()) title = metadata.title
       if (metadata.artist?.trim()) artist = metadata.artist
-
       const pixelMap = await extractor.fetchAlbumCover()
       if (pixelMap) {
         coverUri = await MusicImportService.saveCover(pixelMap, context)
       }
-
     } catch (e) {
       console.warn(`元数据解析失败: ${JSON.stringify(e)}`)
     } finally {
@@ -146,22 +179,14 @@ export class MusicImportService {
     }
   }
 
-  /**
-   * 保存封面图
-   */
   private static async saveCover(
     pixelMap: image.PixelMap,
     context: common.UIAbilityContext
   ): Promise<string> {
     const coverPath = `${context.filesDir}/cover_${Date.now()}.jpg`
     const file = fs.openSync(coverPath, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE)
-
     const packer = image.createImagePacker()
-    await packer.packToFile(pixelMap, file.fd, {
-      format: 'image/jpeg',
-      quality: 80
-    })
-
+    await packer.packToFile(pixelMap, file.fd, { format: 'image/jpeg', quality: 80 })
     fs.closeSync(file)
     return `file://${coverPath}`
   }

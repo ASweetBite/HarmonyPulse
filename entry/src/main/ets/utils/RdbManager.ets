@@ -189,6 +189,30 @@ class RdbManager {
     playlistSet.close();
     return result;
   }
+  /**
+   * 根据 ID 从数据库删除单首歌曲
+   */
+  async deleteSongById(songId: string): Promise<boolean> {
+    if (!this.rdbStore) return false;
+
+    try {
+      let predicates = new relationalStore.RdbPredicates(this.tableNameSong);
+      predicates.equalTo('id', songId);
+
+      // 同时也删除映射表中的关联记录，防止产生脏数据
+      let mapPredicates = new relationalStore.RdbPredicates(this.tableNameMap);
+      mapPredicates.equalTo('song_id', songId);
+      await this.rdbStore.delete(mapPredicates);
+
+      const rows = await this.rdbStore.delete(predicates);
+      return rows > 0;
+    } catch (e) {
+      console.error('Database delete song failed', e);
+      return false;
+    }
+  }
+
+
   // ==================== 歌单 (Playlist) 操作 ====================
 
   /**
@@ -310,124 +334,6 @@ class RdbManager {
   }
 
   /**
-   * 根据歌曲唯一ID修改单曲信息（仅更新已存在的歌曲，无则不操作）
-   * 场景：编辑歌曲信息（如修改歌名、歌手、歌词路径等）
-   * @param songId - 待修改歌曲的唯一ID（string）
-   * @param updatedSongInfo - 歌曲待更新的部分信息（Partial<SongItemType>），无需传递完整字段
-   * @returns Promise<boolean> - 修改结果：true（修改成功）、false（修改失败/数据库未初始化/歌曲不存在）
-   */
-  async updateSongById(songId: string, updatedSongInfo: Partial<SongItemType>): Promise<boolean> {
-    if (!this.rdbStore) return false;
-
-    // 构造待更新的字段映射（匹配数据库表结构，处理特殊字段转换）
-    const updateValue: relationalStore.ValuesBucket = {};
-    if (updatedSongInfo.img) updateValue.img = updatedSongInfo.img;
-    if (updatedSongInfo.name) updateValue.name = updatedSongInfo.name;
-    if (updatedSongInfo.author) updateValue.author = updatedSongInfo.author;
-    if (updatedSongInfo.filePath) updateValue.filePath = updatedSongInfo.filePath;
-    if (updatedSongInfo.lyricPath !== undefined) updateValue.lyricPath = updatedSongInfo.lyricPath || '';
-    if (updatedSongInfo.hasLyric !== undefined) updateValue.hasLyric = updatedSongInfo.hasLyric ? 1 : 0;
-
-    // 构造查询条件：匹配歌曲唯一ID
-    const predicates = new relationalStore.RdbPredicates(this.tableNameSong);
-    predicates.equalTo('id', songId);
-
-    // 执行更新操作，返回受影响的行数
-    const affectedRows = await this.rdbStore.update(updateValue, predicates);
-    return affectedRows > 0;
-  }
-
-
-  /**
-   * 向指定歌单中插入已有歌曲（仅建立关联关系，不重复插入歌曲本身）
-   * 场景：将本地已存在的歌曲添加到某个歌单中（多对多关联补充）
-   * @param playlistId - 目标歌单的ID（number）
-   * @param songId - 已有歌曲的唯一ID（string）
-   * @returns Promise<boolean> - 操作结果：true（添加成功/已存在关联）、false（操作失败/数据库未初始化/歌单/歌曲不存在）
-   */
-  async insertExistingSongToPlaylist(playlistId: number, songId: string): Promise<boolean> {
-    if (!this.rdbStore) return false;
-
-    try {
-      // 步骤1：验证歌单是否存在
-      const playlistPredicates = new relationalStore.RdbPredicates(this.tableNamePlaylist);
-      playlistPredicates.equalTo('id', playlistId);
-      const playlistResult = await this.rdbStore.query(playlistPredicates);
-      const playlistExists = playlistResult.goToNextRow();
-      playlistResult.close();
-      if (!playlistExists) {
-        console.error('Playlist does not exist');
-        return false;
-      }
-
-      // 步骤2：验证歌曲是否存在
-      const songPredicates = new relationalStore.RdbPredicates(this.tableNameSong);
-      songPredicates.equalTo('id', songId);
-      const songResult = await this.rdbStore.query(songPredicates);
-      const songExists = songResult.goToNextRow();
-      songResult.close();
-      if (!songExists) {
-        console.error('Song does not exist');
-        return false;
-      }
-
-      // 步骤3：建立歌单-歌曲关联（忽略重复关联，避免报错）
-      const mapValue: relationalStore.ValuesBucket = {
-        playlist_id: playlistId,
-        song_id: songId
-      };
-
-      await this.rdbStore.insert(
-        this.tableNameMap,
-        mapValue,
-        relationalStore.ConflictResolution.ON_CONFLICT_IGNORE
-      );
-
-      console.info('Existing song added to playlist successfully');
-      return true;
-    } catch (e) {
-      console.error('Failed to add existing song to playlist', e);
-      return false;
-    }
-  }
-  /**
-   * 根据歌曲唯一ID删除单曲，同时清理该歌曲在所有歌单中的关联关系
-   * 场景：删除本地无用歌曲，彻底移除数据库中的相关记录
-   * @param songId - 待删除歌曲的唯一ID（string）
-   * @returns Promise<boolean> - 删除结果：true（删除成功）、false（删除失败/数据库未初始化/歌曲不存在）
-   */
-  async deleteSongById(songId: string): Promise<boolean> {
-    if (!this.rdbStore) return false;
-
-    // 开启事务，保证「删除映射关系」和「删除歌曲本身」两步操作的原子性
-    this.rdbStore.beginTransaction();
-
-    try {
-      // 步骤1：删除映射表中该歌曲的所有关联记录（多对多关系清理）
-      const mapPredicates = new relationalStore.RdbPredicates(this.tableNameMap);
-      mapPredicates.equalTo('song_id', songId);
-      await this.rdbStore.delete(mapPredicates);
-
-      // 步骤2：删除歌曲表中的目标歌曲记录
-      const songPredicates = new relationalStore.RdbPredicates(this.tableNameSong);
-      songPredicates.equalTo('id', songId);
-      const affectedRows = await this.rdbStore.delete(songPredicates);
-
-      // 提交事务
-      this.rdbStore.commit();
-      console.info('Song deleted successfully with related mappings');
-
-      // 以受影响行数判断歌曲是否存在并成功删除
-      return affectedRows > 0;
-    } catch (e) {
-      // 发生错误回滚事务，保证数据一致性
-      console.error('Failed to delete song, rolling back', e);
-      this.rdbStore.rollBack();
-      return false;
-    }
-  }
-
-  /**
    * 模糊搜索歌曲
    * 场景：搜索栏输入关键词，查找歌名或歌手
    */
@@ -448,19 +354,15 @@ class RdbManager {
   private parseSongResultSet(resultSet: relationalStore.ResultSet): SongItemType[] {
     const songs: SongItemType[] = [];
     while (resultSet.goToNextRow()) {
-      try {
-        songs.push({
-          id: resultSet.getString(resultSet.getColumnIndex('id')),
-          name: resultSet.getString(resultSet.getColumnIndex('name')),
-          img: resultSet.getString(resultSet.getColumnIndex('img')),
-          author: resultSet.getString(resultSet.getColumnIndex('author')),
-          filePath: resultSet.getString(resultSet.getColumnIndex('filePath')),
-          lyricPath: resultSet.getString(resultSet.getColumnIndex('lyricPath')),
-          hasLyric: resultSet.getLong(resultSet.getColumnIndex('hasLyric')) === 1
-        });
-      } catch (error) {
-        console.error('Failed to parse', error);
-      }
+      songs.push({
+        id: resultSet.getString(resultSet.getColumnIndex('id')),
+        name: resultSet.getString(resultSet.getColumnIndex('name')),
+        img: resultSet.getString(resultSet.getColumnIndex('img')),
+        author: resultSet.getString(resultSet.getColumnIndex('author')),
+        filePath: resultSet.getString(resultSet.getColumnIndex('filePath')),
+        lyricPath: resultSet.getString(resultSet.getColumnIndex('lyricPath')),
+        hasLyric: resultSet.getLong(resultSet.getColumnIndex('hasLyric')) === 1
+      });
     }
     resultSet.close();
     return songs;
