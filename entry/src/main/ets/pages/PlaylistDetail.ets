@@ -77,6 +77,7 @@ struct PlaylistDetail {
       // 2. 获取歌单关联的歌曲列表
       const results = await RdbManager.getSongsByPlaylistId(this.playlistId);
       this.songs = results;
+      this.globalMusic.songList = results;
 
       // 兜底策略：如果歌单本身没封面，但有歌曲，则取第一首歌的封面
       if (!this.coverImg) {
