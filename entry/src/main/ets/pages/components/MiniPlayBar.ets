@@ -23,6 +23,11 @@ export struct MiniPlayBar {
   private lyricScroller: Scroller = new Scroller();
 
   @Local isPlayListOpen: boolean = false; // 控制播放列表弹窗
+
+  private isManualScrolling: boolean = false; // 手动跳转锁
+  private targetLyricIndex: number = -1;      // 目标索引
+  private jumpLockTimer: number = -1; // 专门用于处理跳转锁的定时器
+
   aboutToAppear() {
     // 组件加载时，订阅歌曲切换事件
     this.musicState.onSongChange(() => {
@@ -56,6 +61,10 @@ export struct MiniPlayBar {
   // 监听音乐时间变化，计算当前歌词行
   @Monitor("musicState.time")
   onTimeUpdate() {
+    // --- 核心修改：如果是手动跳转过程中，不执行自动索引计算 ---
+    if (this.isManualScrolling) {
+      return;
+    }
     if (this.lyricList.length === 0) return;
 
     // 找到最后一个时间小于当前播放时间的歌词行
@@ -69,6 +78,13 @@ export struct MiniPlayBar {
       activeIndex = activeIndex - 1;
     }
 
+    // 只有在非锁定状态，且索引真的变化时才更新 UI
+    if (this.currentLyricIndex !== activeIndex) {
+      this.currentLyricIndex = activeIndex;
+      this.lyricScroller.scrollToIndex(activeIndex, true, ScrollAlign.CENTER);
+    }
+
+    // 只有索引真的变化时才滚动，减少性能消耗
     if (this.currentLyricIndex !== activeIndex) {
       this.currentLyricIndex = activeIndex;
       // 歌词自动滚动到中间
@@ -85,9 +101,15 @@ export struct MiniPlayBar {
   private scrollToLyric(index: number, time: number) {
     // 1. 立即清除任何正在等待的“恢复模糊”定时器
     clearTimeout(this.timer);
+    // 1.1 清除之前的解锁定时器（防止连续点击导致逻辑混乱）
+    clearTimeout(this.jumpLockTimer);
 
     // 2. 立即加回模糊和缩放样式（恢复非交互状态）
     this.isUserInteracting = false;
+
+    // --- 核心修改：锁定并记录目标 ---
+    this.isManualScrolling = true;
+    this.targetLyricIndex = index;
 
     // 3. 更新当前索引并同步播放器
     this.currentLyricIndex = index;
@@ -97,6 +119,14 @@ export struct MiniPlayBar {
     // 4. 执行滚动：此时 List 会因为 isUserInteracting 为 false 而应用模糊样式
     // 使用 ScrollAlign.CENTER 确保点击的那行滚动到中间
     this.lyricScroller.scrollToIndex(index, true, ScrollAlign.CENTER);
+
+    // 5. 【关键】延迟解锁：给播放器 800 毫秒的时间去稳定它的时间戳
+    this.jumpLockTimer = setTimeout(() => {
+      this.isManualScrolling = false;
+      console.info("MiniPlayBar: 跳转锁已解除");
+    }, 800);
+
+
   }
 
   // 获取当前播放模式对应的图标
@@ -155,8 +185,7 @@ export struct MiniPlayBar {
             }
             .onClick(() => {
               this.scrollToLyric(index, line.time);
-              avPlayerManage.jumpToPlay(line.time);
-              this.musicState.isPlay = true;
+
             })
           })
 
