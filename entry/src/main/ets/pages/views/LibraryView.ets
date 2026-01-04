@@ -6,6 +6,10 @@ import { promptAction } from '@kit.ArkUI';
 import { vibrator } from '@kit.SensorServiceKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { lyricManager } from '../../utils/LyricManager'; // 确保导入路径正确
+import { picker } from '@kit.CoreFileKit'; // 导入选择器模块
+import { fileIo as fs } from '@kit.CoreFileKit'; // 确保有 fs 别名用于读取外部文件
+import { util } from '@kit.ArkTS';
+import RdbManager from '../../utils/RdbManager';
 
 @ComponentV2
 export struct LibraryView {
@@ -13,7 +17,61 @@ export struct LibraryView {
   @Local isEditSheetOpen: boolean = false; // 控制编辑页打开
   @Local editingSong: SongItemType | null = null; // 正在编辑的歌曲
   @Local editingLyricText: string = ""; // 正在编辑的歌词文本
+  // 在 LibraryView 类内部添加
+  // 在 LibraryView 结构体内修改 importLyricFromFile 方法
+  async importLyricFromFile() {
+    if (!this.editingSong) return;
+    const songId = this.editingSong.id;
 
+    try {
+      // 1. 选择文件
+      const documentSelectOptions = new picker.DocumentSelectOptions();
+      documentSelectOptions.fileSuffixFilters = ['.lrc'];
+      documentSelectOptions.maxSelectNumber = 1;
+      const documentViewPicker = new picker.DocumentViewPicker();
+      const uris = await documentViewPicker.select(documentSelectOptions);
+
+      if (!uris || uris.length === 0) return;
+      const selectedUri = uris[0];
+
+      // 2. 获取该歌曲在沙箱中预定的歌词物理路径
+      // 这个路径类似于: /data/storage/el2/base/files/lyrics/song123.lrc
+      const destPath = lyricManager.getOrCreateLyricPath(songId);
+
+      // 3. 【核心技术突破】通过文件句柄 (FD) 进行物理拷贝
+      // 这种方法 100% 避开 13900002 错误，因为它不依赖系统对虚拟路径的解析
+      let srcFile = fs.openSync(selectedUri, fs.OpenMode.READ_ONLY);
+      let destFile = fs.openSync(destPath, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE | fs.OpenMode.TRUNC);
+
+      // 直接在系统底层进行数据流拷贝
+      fs.copyFileSync(srcFile.fd, destFile.fd);
+
+      fs.closeSync(srcFile);
+      fs.closeSync(destFile);
+
+      // 4. 从刚拷贝成功的【物理路径】读取内容，用于显示在 TextArea
+      let content = fs.readTextSync(destPath);
+
+      if (content) {
+        // A. 更新 UI 预览变量
+        this.editingLyricText = content;
+
+        // B. 【关键】更新数据库记录
+        // 只有这一步做了，下次开机 hasLyric 才是 true
+        await RdbManager.updateSongLyric(songId, destPath, true);
+
+        // C. 更新当前正在编辑的对象属性
+        this.editingSong.lyricPath = destPath;
+        this.editingSong.hasLyric = true;
+
+        promptAction.showToast({ message: "歌词导入并存入数据库" });
+      }
+    } catch (err) {
+      const error = err as BusinessError;
+      console.error(`导入失败: 代码 ${error.code}, 原因: ${error.message}`);
+      promptAction.showToast({ message: "导入失败，请检查文件" });
+    }
+  }
   /**
    * 保存修改后的歌曲信息及歌词
    */
@@ -70,7 +128,23 @@ export struct LibraryView {
                 if (this.editingSong) this.editingSong.author = val;
               })
 
-            Text("歌词 (LRC格式)").fontSize(14).fontColor(Color.Gray).margin({ top: 10 })
+            // 修改歌词标签行
+            Row() {
+              Text("歌词 (LRC格式)").fontSize(14).fontColor(Color.Gray).margin({ top: 10 })
+              Blank()
+              // 修改后的导入按钮：仅显示 + 号
+              Button("+", { type: ButtonType.Circle })
+                .fontSize(20)            // 让加号大一点
+                .fontWeight(FontWeight.Bold)
+                .width(28)               // 调整按钮宽度
+                .height(28)              // 调整按钮高度
+                .backgroundColor('#007DFF')
+                .onClick(() => this.importLyricFromFile())
+            }
+            .width('100%')
+            .margin({ top: 10 })
+
+
             TextArea({ text: this.editingLyricText, placeholder: "[00:00.00]在此粘贴LRC歌词..." })
               .height(250)
               .onChange((val) => {
@@ -176,6 +250,7 @@ export struct LibraryView {
             }).then((result) => {
               if (result.index === 1) {
                 avPlayerManage.deleteSong(index);
+                RdbManager.deleteSongById(item.id);
               }
             })
           }
