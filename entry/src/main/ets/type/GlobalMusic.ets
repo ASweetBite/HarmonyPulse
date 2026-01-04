@@ -7,16 +7,28 @@ export class GlobalMusic {
   @Trace name: string = ""
   @Trace author: string = ""
   @Trace currentID: string = ""
+  @Trace lyricPath: string = ""
   @Trace time: number = 0
   @Trace duration: number = 0
   @Trace isPlay: boolean = false // 默认为 false 更合理
   @Trace playbackStatus: "单曲循环" | "随机播放" | "顺序播放" = "顺序播放"
   @Trace currentMusic: number = 0
   @Trace isShowPlayBar: boolean = false
+  private onSongChangeListeners: Array<() => void> = [];
 
   // 核心：播放列表
   //@Trace playList: SongItemType[] = []
   @Trace songList: SongItemType[] = []; // 必须加 @Trace
+
+  // 注册监听
+  onSongChange(callback: () => void) {
+    this.onSongChangeListeners.push(callback);
+  }
+
+  // 触发所有监听
+  notifySongChange() {
+    this.onSongChangeListeners.forEach(cb => cb());
+  }
 
   /**
    * 初始化数据 (加载静态资源)
@@ -54,6 +66,7 @@ export class GlobalMusic {
       this.name = item.name;
       this.author = item.author;
       this.img = item.img;
+      this.lyricPath = item.lyricPath
       this.time = 0;
       this.isPlay = false;
       this.isShowPlayBar = true;

@@ -3,6 +3,7 @@ import { hilog } from '@kit.PerformanceAnalysisKit'
 import { window } from '@kit.ArkUI'
 import { avPlayerManage } from '../utils/avPlayerMusic'
 import { SessionManager } from '../utils/AVSessionManager'
+import { lyricManager } from '../utils/LyricManager'
 
 const DOMAIN = 0x0000
 
@@ -20,6 +21,7 @@ export default class EntryAbility extends UIAbility {
     }
 
     avPlayerManage.setContext(this.context)
+    lyricManager.setContext(this.context)
 
     hilog.info(DOMAIN, 'testTag', 'Ability onCreate')
   }

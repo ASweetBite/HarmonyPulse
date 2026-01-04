@@ -3,8 +3,8 @@ export interface SongItemType {
   name: string
   author: string
   filePath: string
-  lyricPath?: string
-  hasLyric?: boolean
+  lyricPath: string
+  hasLyric: boolean
   id:string
 }
 

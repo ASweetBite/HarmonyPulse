@@ -8,6 +8,7 @@ import { preferences } from '@kit.ArkData'
 import { SongItemType } from '../type/SongItemType'
 import { GlobalMusic } from '../type/GlobalMusic'
 import RdbManager from './RdbManager'
+import { lyricManager, LyricManager } from './LyricManager'
 
 const PREF_NAME = 'music_storage'
 const KEY_SONG_LIST = 'song_list'
@@ -131,15 +132,16 @@ export class MusicImportService {
       if (extractor) await extractor.release()
       if (targetFile) fs.closeSync(targetFile)
     }
+    const tempId = `user_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`
 
     // ---------- 适配新的 SongItemType 结构 ----------
     return {
-      id: `user_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+      id: tempId,
       name: title,
       author: artist,
       img: coverUri,
       filePath: newFileName, // 存储沙箱内的文件名
-      lyricPath: '',         // 初始为空
+      lyricPath: lyricManager.getOrCreateLyricPath(tempId),   //导入歌曲时自动创建歌词
       hasLyric: false        // 初始为 false
     }
   }

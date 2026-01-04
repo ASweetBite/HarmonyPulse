@@ -7,14 +7,6 @@
       "data": {
         "description" : "this is layout"
       }
-    },
-    {
-      "name": "play",
-      "pageSourceFile": "src/main/ets/pages/play.ets",
-      "buildFunction": "PlayBuilder",
-      "data": {
-        "description" : "this is layout"
-      }
     }
 
   ]

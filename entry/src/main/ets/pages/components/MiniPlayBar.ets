@@ -2,8 +2,8 @@
 import { GlobalMusic } from '../../type/GlobalMusic';
 import { LyricLine } from '../../type/SongItemType';
 import { avPlayerManage } from '../../utils/avPlayerMusic';
+import { LyricManager, lyricManager } from '../../utils/LyricManager';
 import { number2time } from '../../utils/TimeUtils';
-import { parseLrc } from '../../utils/LyricUtils';
 
 @ComponentV2
 export struct MiniPlayBar {
@@ -19,6 +19,36 @@ export struct MiniPlayBar {
 
   // 歌词滚动控制器
   private lyricScroller: Scroller = new Scroller();
+
+  aboutToAppear() {
+    // 组件加载时，订阅歌曲切换事件
+    this.musicState.onSongChange(() => {
+      this.loadLyricManual();
+    });
+
+    // 初始加载一次（防止首首歌不显示）
+    this.loadLyricManual();
+  }
+
+  loadLyricManual() {
+    console.info("MiniPlayBar: Manual loading lyric for ID: " + this.musicState.currentID);
+
+    const path = this.musicState.lyricPath;
+    if (path) {
+      const lrcContent = lyricManager.readLyricFile(path);
+      if (lrcContent) {
+        this.lyricList = LyricManager.parseLrc(lrcContent);
+        this.currentLyricIndex = 0;
+        this.lyricScroller.scrollToIndex(0);
+        return;
+      }
+    }
+
+    // 兜底
+    this.lyricList = [{ time: 0, text: "暂无歌词" }];
+    this.currentLyricIndex = 0;
+  }
+
 
   // 监听音乐时间变化，计算当前歌词行
   @Monitor("musicState.time")
@@ -43,14 +73,12 @@ export struct MiniPlayBar {
     }
   }
 
-  // 监听歌曲ID变化，重新加载歌词
-  @Monitor("musicState.currentID")
-  onSongChange() {
-    // 模拟加载歌词，实际开发中应读取 fileSystem 或网络请求
-    const mockLrc = `[00:00.00]纯音乐，请欣赏\n[00:05.00]这是模拟的歌词第一行\n[00:10.00]这是第二行，准备高亮\n[00:15.00]随着音乐起伏\n[00:20.00]模糊效果测试\n[00:25.00]深层模糊效果\n[00:30.00]点击这一行跳转\n[00:35.00]End`;
-    this.lyricList = parseLrc(mockLrc);
-    this.currentLyricIndex = 0;
+
+  // 辅助方法：处理无歌词情况
+  private setDefaultLyric() {
+    this.lyricList = [{ time: 0, text: "暂无歌词" }];
   }
+
 
   // --- 歌词页面构建器 ---
   @Builder
