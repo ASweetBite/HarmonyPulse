@@ -181,10 +181,13 @@ class RdbManager {
       songSet.close();
 
       result.push({
+        id: playlistId,   // ⭐ 新增：主键 id
         name: name,
         img: img,
-        songs: songs
+        songs: songs,
+        num: songs.length // ⭐ 顺手修正：num 应该等于歌曲数
       });
+
     }
     playlistSet.close();
     return result;
@@ -287,6 +290,96 @@ class RdbManager {
       return false;
     }
   }
+
+  /**
+   * 向指定歌单中添加一首歌曲
+   * @param playlistId 歌单 ID
+   * @param songId 歌曲 ID
+   */
+  async addSongToPlaylist(playlistId: number, songId: string): Promise<boolean> {
+    if (!this.rdbStore) return false;
+
+    try {
+      const mapValue: relationalStore.ValuesBucket = {
+        playlist_id: playlistId,
+        song_id: songId
+      };
+
+      const rowId = await this.rdbStore.insert(
+        this.tableNameMap,
+        mapValue,
+        relationalStore.ConflictResolution.ON_CONFLICT_IGNORE
+      );
+
+      return rowId !== -1;
+    } catch (e) {
+      console.error('Add song to playlist failed', e);
+      return false;
+    }
+  }
+
+  /**
+   * 根据歌单 ID 获取该歌单下的所有歌曲
+   * @param playlistId 歌单 ID
+   */
+  async getSongsByPlaylistId(playlistId: number): Promise<SongItemType[]> {
+    if (!this.rdbStore) return [];
+
+    const songs: SongItemType[] = [];
+
+    const sql = `
+    SELECT s.* FROM ${this.tableNameSong} s
+    INNER JOIN ${this.tableNameMap} m
+      ON s.id = m.song_id
+    WHERE m.playlist_id = ?
+  `;
+
+    try {
+      const resultSet = await this.rdbStore.querySql(sql, [playlistId]);
+
+      while (resultSet.goToNextRow()) {
+        songs.push({
+          id: resultSet.getString(resultSet.getColumnIndex('id')),
+          name: resultSet.getString(resultSet.getColumnIndex('name')),
+          img: resultSet.getString(resultSet.getColumnIndex('img')),
+          author: resultSet.getString(resultSet.getColumnIndex('author')),
+          filePath: resultSet.getString(resultSet.getColumnIndex('filePath')),
+          lyricPath: resultSet.getString(resultSet.getColumnIndex('lyricPath')),
+          hasLyric: resultSet.getLong(resultSet.getColumnIndex('hasLyric')) === 1
+        });
+      }
+
+      resultSet.close();
+      return songs;
+    } catch (e) {
+      console.error('Get songs by playlistId failed', e);
+      return [];
+    }
+  }
+
+
+  /**
+   * 从指定歌单中移除一首歌曲
+   * @param playlistId 歌单 ID
+   * @param songId 歌曲 ID
+   */
+  async removeSongFromPlaylist(playlistId: number, songId: string): Promise<boolean> {
+    if (!this.rdbStore) return false;
+
+    try {
+      const predicates = new relationalStore.RdbPredicates(this.tableNameMap);
+      predicates.equalTo('playlist_id', playlistId)
+        .and()
+        .equalTo('song_id', songId);
+
+      const rows = await this.rdbStore.delete(predicates);
+      return rows > 0;
+    } catch (e) {
+      console.error('Remove song from playlist failed', e);
+      return false;
+    }
+  }
+
 
   /**
    * 修改歌单信息（例如重命名）

@@ -2,7 +2,6 @@
 import { AppStorageV2, PersistenceV2 } from '@kit.ArkUI';
 import { router } from '@kit.ArkUI';
 import { GlobalMusic } from '../type/GlobalMusic';
-import { songsList } from '../type/data';
 import { MiniPlayBar } from './components/MiniPlayBar';
 import { LibraryView } from './views/LibraryView';
 import { PlaylistView } from './views/PlaylistView';
@@ -21,7 +20,7 @@ export function layoutBuilder() {
 struct MusicIndex {
   // 连接状态
   @Local globalMusic: GlobalMusic = AppStorageV2.connect(GlobalMusic, "GlobalMusic", () => new GlobalMusic())!;
-
+  @Local isRdbReady: boolean = false; // 数据库准备状态
   private swiperController: SwiperController = new SwiperController();
 
   // 页面加载时初始化数据
@@ -41,13 +40,6 @@ struct MusicIndex {
       // 3. 判断是否是初次运行：如果数据库里一首歌都没有，则导入默认写死的数据
       if (allSongs.length === 0) {
         console.info('MusicPlayer: 数据库为空，正在导入默认内置歌曲');
-
-        // 注意：假设你的 songsList 数据结构需要转换，或者直接传入
-        // 这里可以直接把默认数据存入数据库
-        for (let song of songsList) {
-          await RdbManager.insertSong(song);
-        }
-
         // 重新获取数据
         allSongs = await RdbManager.getAllSongs();
       }
@@ -55,7 +47,7 @@ struct MusicIndex {
       // 4. 将数据库中的数据同步到全局状态 globalMusic，驱动 UI 显示
       this.globalMusic.songList = allSongs;
       console.info(`MusicPlayer: 成功从数据库加载了 ${allSongs.length} 首歌`);
-
+      this.isRdbReady = true; // 标记数据库已就绪
     } catch (e) {
       const err = e as BusinessError;
       console.error(`MusicPlayer: 初始化失败. Code: ${err.code}, Msg: ${err.message}`);
@@ -82,22 +74,28 @@ struct MusicIndex {
   build() {
     NavDestination() {
       Stack({ alignContent: Alignment.Bottom }) {
-        Swiper(this.swiperController) {
-          // 传递状态给子视图
-          LibraryView({ musicState: this.globalMusic })
+        if (this.isRdbReady) {
+          Swiper(this.swiperController) {
+            // 传递状态给子视图
+            LibraryView({ musicState: this.globalMusic })
 
-          // 修改PlaylistView，传递点击处理函数
-          PlaylistView({
-            onPlaylistSelected: (name: string) => {
-              this.handlePlaylistSelected(name);
-            }
-          })
+            // 修改PlaylistView，传递点击处理函数
+            PlaylistView({
+              onPlaylistSelected: (name: string) => {
+                this.handlePlaylistSelected(name);
+              }
+            })
+
+          }
+          .loop(false)
+          .index(0)
+          .indicator(true)
+          .width('100%')
+          .height('100%')
+        }else {
+          // 数据库加载中的占位提示
+          LoadingProgress().width(50).height(50).color('#E23241')
         }
-        .loop(false)
-        .index(0)
-        .indicator(true)
-        .width('100%')
-        .height('100%')
 
         Button({ type: ButtonType.Circle }) {
           Text("+")
@@ -112,13 +110,8 @@ struct MusicIndex {
         .shadow({ radius: 10, color: '#99E23241' })
         .onClick(async () => {
           const context = getContext(this) as common.UIAbilityContext;
-          // --- 修改点：只需调用导入方法 ---
-          // 内部 MusicImportService.importFromPicker 已经实现了：
-          // 解析 -> RdbManager.insertSong -> globalMusic.addSong
           await MusicImportService.importFromPicker(context, this.globalMusic);
 
-          // --- 删掉下面这一行，不再需要 saveSongs ---
-          // await MusicImportService.saveSongs(...);
         })
 
         // 底部播放器
