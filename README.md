@@ -5,7 +5,7 @@
 [toc]
 
 📚项目开发文档： [设计开发文档.pdf](设计开发文档.pdf)
-🎥 演示视频：[demo](https://pan.quark.cn/s/9ee75cfea745)
+🎥 演示视频：[musicDemo](https://pan.quark.cn/s/64c6d02dce2b)
 
 
 
