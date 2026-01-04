@@ -34,7 +34,7 @@ struct PlaylistDetail {
     this.refreshData();
   }
 
-  aboutToDisappear(): void {
+  onPageHide(): void {
     console.log('aboutToDisappear 已触发，开始执行相关逻辑');
 
     // 调用独立的异步方法（处理数据库查询等异步操作）
@@ -52,7 +52,7 @@ struct PlaylistDetail {
     try {
       // 你的异步逻辑：查询所有歌曲
       const tempSongs = await RdbManager.getAllSongs();
-      this.songs = tempSongs;
+      this.globalMusic.songList = tempSongs;
       console.log('异步退出逻辑执行完成，歌曲列表已更新');
     } catch (e) {
       console.error('异步退出逻辑执行失败', e);
@@ -142,7 +142,7 @@ struct PlaylistDetail {
         .width(25)
         .textAlign(TextAlign.Center)
 
-      Image(song.img)
+      Image(song.img || $r("app.media.ic_default_list"))
         .width(52)
         .height(52)
         .borderRadius(8)
