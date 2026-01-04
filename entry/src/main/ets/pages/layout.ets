@@ -9,6 +9,7 @@ import { common } from '@kit.AbilityKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { MusicImportService } from '../utils/MusicImportService';
 import RdbManager from '../utils/RdbManager';
+import { SongListItemType } from '../type/SongListItemType';
 
 @Builder
 export function layoutBuilder() {
@@ -55,21 +56,21 @@ struct MusicIndex {
   }
 
 
-  //处理歌单点击跳转
-  private handlePlaylistSelected(playlistName: string) {
-    // 使用路由跳转到歌单详情页[6](@ref)
+  // 修改参数，接收包含 id 的歌单对象或直接接收 id
+  private handlePlaylistSelected(playlist: SongListItemType) {
     router.pushUrl({
-      url: 'pages/PlaylistDetail', // 目标页面路径
+      url: 'pages/PlaylistDetail',
       params: {
-        playlistName: playlistName,
-        songCount: this.globalMusic.songList.length // 传递歌曲数量
+        playlistId: playlist.id, // 核心：传递数据库 ID
+        playlistName: playlist.name
       }
     }).then(() => {
-      console.info(`跳转到歌单详情页: ${playlistName}`);
+      console.info(`成功跳转到歌单ID: ${playlist.id}`);
     }).catch((err: Error) => {
       console.error(`跳转失败: ${err.message}`);
     });
   }
+
 
   build() {
     NavDestination() {
@@ -81,8 +82,8 @@ struct MusicIndex {
 
             // 修改PlaylistView，传递点击处理函数
             PlaylistView({
-              onPlaylistSelected: (name: string) => {
-                this.handlePlaylistSelected(name);
+              onPlaylistSelected: (item: SongListItemType) => {
+                this.handlePlaylistSelected(item);
               }
             })
 

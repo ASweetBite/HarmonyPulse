@@ -307,10 +307,6 @@ export struct LibraryView {
                   .margin({ right: 10 })
               }
 
-              Image($r('app.media.ic_more'))
-                .width(20)
-                .height(20)
-                .fillColor(Color.Gray)
             }
             .width('100%')
             .padding({ left: 20, right: 20, top: 10, bottom: 10 })

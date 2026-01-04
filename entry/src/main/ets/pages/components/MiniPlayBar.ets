@@ -293,7 +293,7 @@ export struct MiniPlayBar {
       // --- 控制按钮 ---
       Row({ space: 25 }) {
         // 1. 新增播放列表按钮
-        Image($r('app.media.ic_list')) // 请确保你有这个图标，如果没有可用 ic_default 代替测试
+        Image($r('app.media.ic_list'))
           .width(30)
           .height(30)
           .fillColor(Color.White)

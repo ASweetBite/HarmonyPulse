@@ -1,10 +1,11 @@
-import { promptAction } from '@kit.ArkUI';
+import { AppStorageV2, promptAction } from '@kit.ArkUI';
 import { SongItemType } from '../../type/SongItemType';
 import { SongListItemType } from '../../type/SongListItemType';
 // 请确保路径正确引入你的数据库管理类
 import RdbManager  from '../../utils/RdbManager';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { fileIo } from '@kit.CoreFileKit';
+import { GlobalMusic } from '../../type/GlobalMusic';
 
 // --- 数据模型适配 ---
 @ObservedV2
@@ -76,7 +77,7 @@ struct CreatePlaylistDialog {
         Button("完成").onClick(() => {
           if (!this.tempName) return;
           // 如果没选图，可以传一个默认图
-          this.onConfirm(this.tempName, this.selectedImg || 'app.media.ic_song_list');
+          this.onConfirm(this.tempName, this.selectedImg || '');
           this.controller.close();
         }).backgroundColor(Color.Transparent).fontColor('#007AFF').fontWeight(FontWeight.Bold).layoutWeight(1)
       }.width('100%').height(50).border({ width: { top: 1 }, color: '#EEEEEE' })
@@ -87,7 +88,8 @@ struct CreatePlaylistDialog {
 @ComponentV2
 export struct PlaylistView {
   // 1. 接收父组件传入的回调函数 (关键点：这里不做默认实现，由父组件传入)
-  @Event onPlaylistSelected: (name: string) => void = (name) => {};
+  @Event onPlaylistSelected: (item: SongListItemType) => void = (name) => {};
+  @Local globalMusic: GlobalMusic = AppStorageV2.connect(GlobalMusic, "GlobalMusic", () => new GlobalMusic())!;
 
   // 2. 状态管理
   @Local playlistCollections: PlaylistModel[] = [];
@@ -143,6 +145,11 @@ export struct PlaylistView {
     this.refreshPlaylists();
   }
 
+  private async loadPlaylistSongs(playlistId: number): Promise<void> {
+    this.globalMusic.songList = await RdbManager.getSongsByPlaylistId(playlistId);
+  }
+
+
   dialogController: CustomDialogController | null = new CustomDialogController({
     builder: CreatePlaylistDialog({
       onConfirm: (name: string, img: string): Promise<void> => this.handleAddPlaylist(name, img)
@@ -166,7 +173,7 @@ export struct PlaylistView {
             Rect().width('100%').aspectRatio(1).fill(item.img).borderRadius(12)
           } else {
             // 图片封面
-            Image(item.img)
+            Image(item.img || $r('app.media.ic_default_list'))
               .width('100%').aspectRatio(1).borderRadius(12)
               .alt($r('app.media.ic_song_list'))
           }
@@ -193,11 +200,11 @@ export struct PlaylistView {
       // 点击交互逻辑
       .onClick(() => {
         if (this.isEditMode) {
-          // 编辑模式下点击卡片本身无反应，或者可以做抖动动画
           return;
         }
         // 正常模式：调用父组件传入的回调
-        this.onPlaylistSelected(item.name);
+        this.loadPlaylistSongs(item.id);
+        this.onPlaylistSelected(item);
       })
       // 触摸动效
       .stateStyles({

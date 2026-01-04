@@ -250,7 +250,7 @@ class RdbManager {
    * @param img 封面图片路径
    * @returns 返回新生成的 playlistId
    */
-  async createPlaylist(name: string, img: string = 'app.media.default_cover'): Promise<number> {
+  async createPlaylist(name: string, img: string): Promise<number> {
     if (!this.rdbStore) return -1;
 
     const value:ValuesBucket = {
@@ -317,6 +317,52 @@ class RdbManager {
       return false;
     }
   }
+
+  /**
+   * 根据歌单 ID 获取单个歌单的完整信息
+   * @param playlistId 歌单 ID
+   * @returns 对应的 SongListItemType （无匹配则返回 null）
+   */
+  async getPlaylistById(playlistId: number): Promise<SongListItemType | null> {
+    if (!this.rdbStore) return null;
+
+    try {
+      // 1. 查询指定 ID 的歌单基础信息
+      const predicates = new relationalStore.RdbPredicates(this.tableNamePlaylist);
+      predicates.equalTo('id', playlistId); // 精准匹配歌单 ID
+      const playlistSet = await this.rdbStore.query(predicates);
+
+      // 检查是否存在该歌单
+      if (!playlistSet.goToNextRow()) {
+        playlistSet.close();
+        console.warn(`Playlist with id ${playlistId} not found`);
+        return null;
+      }
+
+      // 提取歌单基础信息
+      const name = playlistSet.getString(playlistSet.getColumnIndex('name'));
+      const img = playlistSet.getString(playlistSet.getColumnIndex('img'));
+      playlistSet.close();
+
+      // 2. 查询该歌单下的所有歌曲（复用现有方法，减少冗余）
+      const songs = await this.getSongsByPlaylistId(playlistId);
+
+      // 3. 构造并返回 SongListItemType 格式数据
+      const playlistInfo: SongListItemType = {
+        id: playlistId,
+        name: name,
+        img: img,
+        num: songs.length, // 歌曲数量与 songs 数组长度保持一致
+        songs: songs
+      };
+
+      return playlistInfo;
+    } catch (e) {
+      console.error(`Get playlist by id ${playlistId} failed`, e);
+      return null;
+    }
+  }
+
 
   /**
    * 根据歌单 ID 获取该歌单下的所有歌曲

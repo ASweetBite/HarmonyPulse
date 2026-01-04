@@ -1,7 +1,9 @@
-import { promptAction, router } from '@kit.ArkUI';
+import { AppStorageV2, promptAction, router } from '@kit.ArkUI';
+import { GlobalMusic } from '../type/GlobalMusic';
 import { SongItemType } from '../type/SongItemType';
 import { avPlayerManage } from '../utils/avPlayerMusic';
 import RdbManager from '../utils/RdbManager';
+import { MiniPlayBar } from './components/MiniPlayBar';
 
 interface PlaylistRouteParams {
   playlistId?: number
@@ -12,6 +14,7 @@ interface PlaylistRouteParams {
 @Entry
 @Component
 struct PlaylistDetail {
+  globalMusic: GlobalMusic = AppStorageV2.connect(GlobalMusic, "GlobalMusic", () => new GlobalMusic())!;
   @State playlistName: string = '未命名歌单';
   @State playlistId: number = 0;
   @State songs: SongItemType[] = [];
@@ -20,25 +23,71 @@ struct PlaylistDetail {
   @State searchResults: SongItemType[] = [];
   @State isLoading: boolean = false;
   // 默认封面图
-  @State coverImg: string | Resource = $r('app.media.ic_default_list');
+  @State coverImg: string | Resource= "";
 
   aboutToAppear(): void {
     const params = router.getParams() as PlaylistRouteParams | undefined;
-    this.playlistId = params?.playlistId ?? 0;
-    this.playlistName = params?.playlistName ?? '未命名歌单';
+    if (params) {
+      this.playlistId = params.playlistId ?? 0;
+      this.playlistName = params.playlistName ?? '加载中...';
+    }
     this.refreshData();
+  }
+
+  aboutToDisappear(): void {
+    console.log('aboutToDisappear 已触发，开始执行相关逻辑');
+
+    // 调用独立的异步方法（处理数据库查询等异步操作）
+    this.handleAsyncQuitLogic();
+
+    // 同步逻辑直接在这里编写（优先执行，确保完整）
+    this.showAddSongDialog = false;
+    this.searchKeyword = '';
+  }
+
+  /**
+   * 独立的异步退出逻辑方法（专门处理需要 await 的操作）
+   */
+  private async handleAsyncQuitLogic(): Promise<void> {
+    try {
+      // 你的异步逻辑：查询所有歌曲
+      const tempSongs = await RdbManager.getAllSongs();
+      this.songs = tempSongs;
+      console.log('异步退出逻辑执行完成，歌曲列表已更新');
+    } catch (e) {
+      console.error('异步退出逻辑执行失败', e);
+    }
   }
 
   // 刷新歌单数据
   async refreshData() {
-    // 注意：这里假设你有一个根据 ID 获取歌单内歌曲的方法
-    // 如果没有，请在 RdbManager 中实现查询关联表的逻辑
-    const results = await RdbManager.getSongsByPlaylistId(this.playlistId);
-    this.songs = results;
-    if (this.songs.length > 0) {
-      this.coverImg = this.songs[0].img;
+    if (this.playlistId <= 0) return;
+
+    try {
+      // 1. 从数据库获取歌单详情（名称、封面图、描述等）
+      const playlistInfo = await RdbManager.getPlaylistById(this.playlistId);
+      if (playlistInfo) {
+        this.playlistName = playlistInfo.name;
+        // 如果数据库有封面则用数据库的，否则用默认
+        if (playlistInfo.img) {
+          this.coverImg = playlistInfo.img;
+        }
+      }
+
+      // 2. 获取歌单关联的歌曲列表
+      const results = await RdbManager.getSongsByPlaylistId(this.playlistId);
+      this.songs = results;
+
+      // 兜底策略：如果歌单本身没封面，但有歌曲，则取第一首歌的封面
+      if (!this.coverImg) {
+        this.coverImg = $r('app.media.ic_default_list')
+      }
+    } catch (e) {
+      console.error('RefreshData Error:', e);
+      promptAction.showToast({ message: '获取歌单信息失败' });
     }
   }
+
 
   /** 搜索数据库歌曲 */
   private async searchSongsFromDB(): Promise<void> {
@@ -191,129 +240,162 @@ struct PlaylistDetail {
   }
 
   build() {
-    Stack({ alignContent: Alignment.Top }) {
-      // 1. 动态背景模糊 (Apple Music 核心)
-      Image(this.coverImg)
-        .width('100%')
-        .height('50%')
-        .blur(80)
-        .opacity(0.4)
-        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP])
+    Stack({ alignContent: Alignment.Bottom }) {
+      Stack({ alignContent: Alignment.Top }) {
+        Image(this.coverImg)
+          .width('100%')
+          .height('50%')
+          .blur(80)
+          .opacity(0.4)
+          .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP])
 
-      Column() {
-        // 2. 自定义导航栏
-        Row() {
-          Image($r('sys.media.ohos_ic_back'))
-            .width(26)
-            .height(26)
-            .onClick(() => router.back())
+        Column() {
+          // 2. 自定义导航栏
+          Row() {
+            Image($r('sys.media.ohos_ic_back'))
+              .width(26)
+              .height(26)
+              .onClick(() => router.back())
 
-          Blank()
+            Blank()
 
-          Image($r('app.media.ic_more')) // 歌单全局更多操作
-            .width(22)
-            .height(22)
-            .bindMenu([
-              { value: '修改歌单信息', action: () => {/* 调用 updatePlaylist */} },
-              { value: '分享歌单', action: () => {} }
-            ])
-        }
-        .width('100%')
-        .padding({ left: 16, right: 16, top: 12, bottom: 12 })
+            Image($r('app.media.ic_more')) // 歌单全局更多操作
+              .width(22)
+              .height(22)
+              .bindMenu([
+                {
+                  value: '修改歌单信息', action: () => { /* 调用 updatePlaylist */
+                }
+                },
+              ])
+          }
+          .width('100%')
+          .padding({
+            left: 16,
+            right: 16,
+            top: 12,
+            bottom: 12
+          })
 
-        // 3. 歌单封面与信息区
-        Row({ space: 20 }) {
-          Image(this.coverImg)
-            .width(145)
-            .height(145)
-            .borderRadius(12)
-            .shadow({ radius: 30, color: '#44000000', offsetY: 15 })
+          // 3. 歌单封面与信息区
+          Row({ space: 20 }) {
+            Image(this.coverImg)
+              .width(145)
+              .height(145)
+              .borderRadius(12)
+              .shadow({ radius: 30, color: '#44000000', offsetY: 15 })
 
-          Column({ space: 8 }) {
-            Text(this.playlistName)
-              .fontSize(24)
-              .fontWeight(FontWeight.Bold)
-              .fontColor('#111')
-              .maxLines(2)
+            Column({ space: 8 }) {
+              Text(this.playlistName)
+                .fontSize(24)
+                .fontWeight(FontWeight.Bold)
+                .fontColor('#111')
+                .maxLines(2)
 
-            Text('歌单 · 开发者推荐')
-              .fontSize(14)
-              .fontColor('#E23241')
-              .fontWeight(FontWeight.Medium)
+              Text('歌单')
+                .fontSize(14)
+                .fontColor('#E23241')
+                .fontWeight(FontWeight.Medium)
 
-            Text(`${this.songs.length} 首歌曲 · ${this.getTotalDuration()}`)
-              .fontSize(12)
-              .fontColor('#666')
-              .margin({ top: 4 })
+              Text(`${this.songs.length} 首歌曲 · ${this.getTotalDuration()}`)
+                .fontSize(12)
+                .fontColor('#666')
+                .margin({ top: 4 })
 
-            Button('添加歌曲')
-              .height(30)
-              .fontSize(12)
-              .backgroundColor('#1A000000')
-              .fontColor('#111')
-              .margin({ top: 10 })
-              .onClick(() => this.showAddSongDialog = true)
+              Button('添加歌曲')
+                .height(30)
+                .fontSize(12)
+                .backgroundColor('#1A000000')
+                .fontColor('#111')
+                .margin({ top: 10 })
+                .onClick(() => this.showAddSongDialog = true)
+            }
+            .layoutWeight(1)
+            .alignItems(HorizontalAlign.Start)
+          }
+          .width('100%')
+          .padding({ left: 20, right: 20, bottom: 30 })
+
+          // 4. 列表容器
+          List() {
+            // 播放控制快捷键
+            ListItem() {
+              Row({ space: 15 }) {
+                Button() {
+                  Row({ space: 8 }) {
+                    Image($r('app.media.ic_play')).width(18).fillColor(Color.White)
+                    Text('播放').fontColor(Color.White).fontWeight(FontWeight.Bold)
+                  }
+                }
+                .layoutWeight(1)
+                .height(45)
+                .backgroundColor('#E23241')
+                .borderRadius(10)
+                .onClick(() => {
+                  if (this.songs.length > 0) avPlayerManage.playResources(this.songs[0])
+                })
+
+                Button() {
+                  Row({ space: 8 }) {
+                    Image($r('app.media.ic_random')).width(18).fillColor('#E23241')
+                    Text('随机播放').fontColor('#E23241').fontWeight(FontWeight.Bold)
+                  }
+                }
+                .layoutWeight(1)
+                .height(45)
+                .backgroundColor('#12E23241')
+                .borderRadius(10)
+                .onClick(() => {
+                  if (this.songs.length > 0) this.globalMusic.playbackStatus = '随机播放';
+                  avPlayerManage.nextSong()
+                })
+              }
+              .padding({
+                left: 16,
+                right: 16,
+                bottom: 15,
+                top: 15
+              })
+            }
+
+            ForEach(this.songs, (song: SongItemType, index: number) => {
+              ListItem() {
+                this.BuildSongItem(song, index)
+              }
+            }, (item: SongItemType) => item.id)
+
+            ListItem() {
+              Row().height(100)
+            } // 占位
           }
           .layoutWeight(1)
-          .alignItems(HorizontalAlign.Start)
-        }
-        .width('100%')
-        .padding({ left: 20, right: 20, bottom: 30 })
-
-        // 4. 列表容器
-        List() {
-          // 播放控制快捷键
-          ListItem() {
-            Row({ space: 15 }) {
-              Button() {
-                Row({ space: 8 }) {
-                  Image($r('app.media.ic_play')).width(18).fillColor(Color.White)
-                  Text('播放').fontColor(Color.White).fontWeight(FontWeight.Bold)
-                }
-              }.layoutWeight(1).height(45).backgroundColor('#E23241').borderRadius(10)
-              .onClick(() => { if(this.songs.length > 0) avPlayerManage.playResources(this.songs[0]) })
-
-              Button() {
-                Row({ space: 8 }) {
-                  Image($r('app.media.ic_random')).width(18).fillColor('#E23241')
-                  Text('随机播放').fontColor('#E23241').fontWeight(FontWeight.Bold)
-                }
-              }.layoutWeight(1).height(45).backgroundColor('#12E23241').borderRadius(10)
-            }
-            .padding({ left: 16, right: 16, bottom: 15, top: 15 })
-          }
-
-          ForEach(this.songs, (song: SongItemType, index: number) => {
-            ListItem() {
-              this.BuildSongItem(song, index)
-            }
-          }, (item: SongItemType) => item.id)
-
-          ListItem() { Row().height(100) } // 占位
-        }
-        .layoutWeight(1)
-        .width('100%')
-        .backgroundColor(Color.White)
-        .borderRadius({ topLeft: 30, topRight: 30 })
-        .shadow({ radius: 20, color: '#0D000000', offsetY: -5 })
-      }
-      .width('100%')
-      .height('100%')
-
-      // 5. 底部搜索半屏弹窗
-      if (this.showAddSongDialog) {
-        Column() {
-          Blank().onClick(() => this.showAddSongDialog = false)
-          this.BuildAddSongDialog()
+          .width('100%')
+          .backgroundColor(Color.White)
+          .borderRadius({ topLeft: 30, topRight: 30 })
+          .shadow({ radius: 20, color: '#0D000000', offsetY: -5 })
         }
         .width('100%')
         .height('100%')
-        .backgroundColor('#66000000')
-        .transition(TransitionEffect.asymmetric(
-          TransitionEffect.move(TransitionEdge.BOTTOM),
-          TransitionEffect.move(TransitionEdge.BOTTOM)
-        ))
+
+
+        // 5. 底部搜索半屏弹窗
+        if (this.showAddSongDialog) {
+          Column() {
+            Blank().onClick(() => this.showAddSongDialog = false)
+            this.BuildAddSongDialog()
+          }
+          .width('100%')
+          .height('100%')
+          .backgroundColor('#66000000')
+          .transition(TransitionEffect.asymmetric(
+            TransitionEffect.move(TransitionEdge.BOTTOM),
+            TransitionEffect.move(TransitionEdge.BOTTOM)
+          ))
+        }
       }
+      .width('100%')
+      .height('100%')
+      MiniPlayBar({ musicState: this.globalMusic })
     }
     .width('100%')
     .height('100%')
