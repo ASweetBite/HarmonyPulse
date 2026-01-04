@@ -1,23 +1,40 @@
 {
   "module": {
+    "routerMap": "$profile:route_map",
+    "requestPermissions": [
+      {
+        "name": "ohos.permission.VIBRATE",
+      },
+      {
+        "name": "ohos.permission.INTERNET"    //申请网络权限
+
+      },{ "name": "ohos.permission.KEEP_BACKGROUND_RUNNING" //长时任务
+      }
+    ],
     "name": "entry",
     "type": "entry",
     "description": "$string:module_desc",
     "mainElement": "EntryAbility",
+
     "deviceTypes": [
       "default"
     ],
     "deliveryWithInstall": true,
     "installationFree": false,
     "pages": "$profile:main_pages",
+
     "abilities": [
       {
+        "backgroundModes": [
+          // 长时任务类型的配置项
+           "audioPlayback"
+        ],
         "name": "EntryAbility",
         "srcEntry": "./ets/entryability/EntryAbility.ets",
         "description": "$string:EntryAbility_desc",
         "icon": "$media:layered_image",
         "label": "$string:EntryAbility_label",
-        "startWindowIcon": "$media:startIcon",
+        "startWindowIcon": "$media:logo",
         "startWindowBackground": "$color:start_window_background",
         "exported": true,
         "skills": [
