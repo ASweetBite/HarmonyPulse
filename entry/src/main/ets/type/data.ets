@@ -114,12 +114,6 @@ export  const songsList: SongItemType[] = [
   //   url: 'http://yjy-teach-oss.oss-cn-beijing.aliyuncs.com/HeimaCloudMusic/15.m4a',
   //   id: '0015'
   // },
-  {
-    img: 'http://yjy-teach-oss.oss-cn-beijing.aliyuncs.com/HeimaCloudMusic/15.jpg',
-    name: 'Jane Doe',
-    author: '米津玄师/宇多田光',
-    filePath: 'jane_doe.mp3',
-    id: '0016'
-  }
+
 
 ]
