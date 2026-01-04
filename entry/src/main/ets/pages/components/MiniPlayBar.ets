@@ -45,7 +45,24 @@ export struct MiniPlayBar {
     if (path) {
       const lrcContent = lyricManager.readLyricFile(path);
       if (lrcContent) {
-        this.lyricList = LyricManager.parseLrc(lrcContent);
+        // 1. 原始解析
+        const rawList = LyricManager.parseLrc(lrcContent);
+
+        // 2. --- 核心修改：合并相同时间戳的歌词 ---
+        const groupedList: LyricLine[] = [];
+        rawList.forEach((item: LyricLine) => {
+          // 检查新数组最后一项的时间是否与当前项相同
+          if (groupedList.length > 0 && groupedList[groupedList.length - 1].time === item.time) {
+            // 时间戳相同，将歌词拼接到上一行后面
+            groupedList[groupedList.length - 1].text += "\n" + item.text;
+          } else {
+            // 时间戳不同，作为新的一行加入
+            groupedList.push({ time: item.time, text: item.text });
+          }
+        });
+        // 【关键修复点】：将合并后的 groupedList 赋值给状态变量，而不是 rawList
+        this.lyricList = groupedList;
+        //this.lyricList = LyricManager.parseLrc(lrcContent);
         this.currentLyricIndex = 0;
         this.lyricScroller.scrollToIndex(0);
         return;
@@ -174,6 +191,8 @@ export struct MiniPlayBar {
                 .textAlign(TextAlign.Center)
                 .fontWeight(index === this.currentLyricIndex ? FontWeight.Bold : FontWeight.Normal)
                 .fontSize(index === this.currentLyricIndex ? 24 : 18)
+                .lineHeight(index === this.currentLyricIndex ? 28 : 24) // 设置行高让双语间距更舒适
+
                 .fontColor(this.isUserInteracting || index === this.currentLyricIndex ?
                   Color.White : 'rgba(255,255,255,0.6)')
                 .blur(this.isUserInteracting ? 0 : Math.min(Math.abs(index - this.currentLyricIndex) * 1.5, 10))
@@ -183,6 +202,7 @@ export struct MiniPlayBar {
                 })
                 .animation({ duration: 300, curve: Curve.EaseOut })
             }
+            //.padding({ left: 30, right: 30 }) // 增加左右内边距防止歌词贴边
             .onClick(() => {
               this.scrollToLyric(index, line.time);
 
@@ -374,8 +394,7 @@ export struct MiniPlayBar {
           .fontColor('#999')
           .margin({ left: 5 })
         Blank()
-        Text("关闭")
-          .fontColor(Color.Gray)
+
           .onClick(() => { this.isPlayListOpen = false })
       }
       .width('100%')
