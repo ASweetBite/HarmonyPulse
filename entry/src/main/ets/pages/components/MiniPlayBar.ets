@@ -12,6 +12,8 @@ export struct MiniPlayBar {
 
   // 播放器内部状态：全屏开关
   @Local isFullScreenPlayerOpen: boolean = false;
+  @Local isUserInteracting: boolean = false; // 用户是否正在操作
+  private timer: number = -1;
 
   // --- 歌词相关状态 ---
   @Local currentLyricIndex: number = 0;
@@ -73,10 +75,27 @@ export struct MiniPlayBar {
     }
   }
 
-
   // 辅助方法：处理无歌词情况
   private setDefaultLyric() {
     this.lyricList = [{ time: 0, text: "暂无歌词" }];
+  }
+
+  // 辅助方法：跳转歌词
+  private scrollToLyric(index: number, time: number) {
+    // 1. 立即清除任何正在等待的“恢复模糊”定时器
+    clearTimeout(this.timer);
+
+    // 2. 立即加回模糊和缩放样式（恢复非交互状态）
+    this.isUserInteracting = false;
+
+    // 3. 更新当前索引并同步播放器
+    this.currentLyricIndex = index;
+    avPlayerManage.jumpToPlay(time);
+    this.musicState.isPlay = true;
+
+    // 4. 执行滚动：此时 List 会因为 isUserInteracting 为 false 而应用模糊样式
+    // 使用 ScrollAlign.CENTER 确保点击的那行滚动到中间
+    this.lyricScroller.scrollToIndex(index, true, ScrollAlign.CENTER);
   }
 
 
@@ -88,8 +107,7 @@ export struct MiniPlayBar {
         Text("暂无歌词").fontColor(Color.Gray).margin({ top: 100 })
       } else {
         List({ scroller: this.lyricScroller, space: 20 }) {
-          // 顶部占位，让第一句能滚到中间
-          ListItem().height('40%')
+          ListItem().height('45%') // 顶部留白
 
           ForEach(this.lyricList, (line: LyricLine, index: number) => {
             ListItem() {
@@ -98,37 +116,46 @@ export struct MiniPlayBar {
                 .textAlign(TextAlign.Center)
                 .fontWeight(index === this.currentLyricIndex ? FontWeight.Bold : FontWeight.Normal)
                 .fontSize(index === this.currentLyricIndex ? 24 : 18)
-                .fontColor(index === this.currentLyricIndex ? Color.White : 'rgba(255,255,255,0.6)')
-                // --- 视觉特效核心逻辑 ---
-                // 1. 模糊：距离越远，模糊程度越高 (limit 10)
-                .blur(Math.min(Math.abs(index - this.currentLyricIndex) * 1.5, 7))
-                // 2. 缩放：当前行最大，其他的稍微缩小
+                .fontColor(this.isUserInteracting || index === this.currentLyricIndex ?
+                  Color.White : 'rgba(255,255,255,0.6)')
+                .blur(this.isUserInteracting ? 0 : Math.min(Math.abs(index - this.currentLyricIndex) * 1.5, 10))
                 .scale({
-                  x: index === this.currentLyricIndex ? 1.0 : 0.9,
-                  y: index === this.currentLyricIndex ? 1.0 : 0.9
+                  x: this.isUserInteracting || index === this.currentLyricIndex ? 1.0 : 0.9,
+                  y: this.isUserInteracting || index === this.currentLyricIndex ? 1.0 : 0.9
                 })
-                // 3. 动画：所有属性变化都带动画
                 .animation({ duration: 300, curve: Curve.EaseOut })
-                .onClick(() => {
-                  // 点击跳转播放
-                  avPlayerManage.jumpToPlay(line.time);
-                  this.musicState.isPlay = true;
-                })
             }
+            .onClick(() => {
+              this.scrollToLyric(index, line.time);
+              avPlayerManage.jumpToPlay(line.time);
+              this.musicState.isPlay = true;
+            })
           })
 
-          // 底部占位
-          ListItem().height('40%')
+          ListItem().height('45%') // 底部留白
         }
         .width('100%')
         .height('100%')
-        .scrollBar(BarState.Off) // 隐藏滚动条更美观
-        .edgeEffect(EdgeEffect.Fade)
+        .scrollBar(BarState.Off)
+        // 监听滑动开始
+        .onScrollFrameBegin((offset: number, state: ScrollState) => {
+          if (!this.isUserInteracting) {
+            clearTimeout(this.timer);
+            this.isUserInteracting = true; // 滑动时去掉模糊，显示清晰歌词
+          }
+          return { offsetRemain: offset };
+        })
+        // 监听滑动停止
+        .onScrollStop(() => {
+          clearTimeout(this.timer);
+          // 如果用户只是滑动而不点击，2.5秒后恢复模糊并滚回当前播放位置
+          this.timer = setTimeout(() => {
+            this.isUserInteracting = false;
+            this.lyricScroller.scrollToIndex(this.currentLyricIndex, true, ScrollAlign.CENTER);
+          }, 2500);
+        })
       }
     }
-    .width('100%')
-    .height('100%')
-    .padding({ left: 30, right: 30 })
   }
 
   // --- 封面与控制页面 ---
@@ -215,6 +242,7 @@ export struct MiniPlayBar {
   // --- 全屏播放器主入口 ---
   @Builder
   FullScreenPlayer() {
+
     Stack({ alignContent: Alignment.Bottom }) {
       // 背景层 (当前封面做高斯模糊背景)
       Image(this.musicState.img)
@@ -239,6 +267,7 @@ export struct MiniPlayBar {
       .width('100%')
       .height('100%')
     }
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     .width('100%')
     .height('100%')
     .backgroundColor('#1c1c1e')
