@@ -47,7 +47,6 @@ export struct MiniPlayBar {
       if (lrcContent) {
         // 1. 原始解析
         const rawList = LyricManager.parseLrc(lrcContent);
-
         // 2. --- 核心修改：合并相同时间戳的歌词 ---
         const groupedList: LyricLine[] = [];
         rawList.forEach((item: LyricLine) => {
@@ -62,7 +61,6 @@ export struct MiniPlayBar {
         });
         // 【关键修复点】：将合并后的 groupedList 赋值给状态变量，而不是 rawList
         this.lyricList = groupedList;
-        //this.lyricList = LyricManager.parseLrc(lrcContent);
         this.currentLyricIndex = 0;
         this.lyricScroller.scrollToIndex(0);
         return;
@@ -190,7 +188,7 @@ export struct MiniPlayBar {
                 .width('100%')
                 .textAlign(TextAlign.Center)
                 .fontWeight(index === this.currentLyricIndex ? FontWeight.Bold : FontWeight.Normal)
-                .fontSize(index === this.currentLyricIndex ? 24 : 18)
+                .fontSize(index === this.currentLyricIndex ? 28 : 18)
                 .lineHeight(index === this.currentLyricIndex ? 28 : 24) // 设置行高让双语间距更舒适
 
                 .fontColor(this.isUserInteracting || index === this.currentLyricIndex ?
@@ -202,7 +200,7 @@ export struct MiniPlayBar {
                 })
                 .animation({ duration: 300, curve: Curve.EaseOut })
             }
-            //.padding({ left: 30, right: 30 }) // 增加左右内边距防止歌词贴边
+
             .onClick(() => {
               this.scrollToLyric(index, line.time);
 
