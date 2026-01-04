@@ -1,6 +1,8 @@
 // src/main/ets/type/GlobalMusic.ets
 import { SongItemType } from './SongItemType';
 
+export type PlaybackMode = "顺序播放" | "单曲循环" | "随机播放";
+
 @ObservedV2
 export class GlobalMusic {
   @Trace img: string = ""
@@ -11,7 +13,7 @@ export class GlobalMusic {
   @Trace time: number = 0
   @Trace duration: number = 0
   @Trace isPlay: boolean = false // 默认为 false 更合理
-  @Trace playbackStatus: "单曲循环" | "随机播放" | "顺序播放" = "顺序播放"
+  @Trace playbackStatus: PlaybackMode = "顺序播放"
   @Trace currentMusic: number = 0
   @Trace isShowPlayBar: boolean = false
   private onSongChangeListeners: Array<() => void> = [];

@@ -1,5 +1,5 @@
 // src/main/ets/components/MiniPlayer.ets
-import { GlobalMusic } from '../../type/GlobalMusic';
+import { GlobalMusic, PlaybackMode } from '../../type/GlobalMusic';
 import { LyricLine } from '../../type/SongItemType';
 import { avPlayerManage } from '../../utils/avPlayerMusic';
 import { LyricManager, lyricManager } from '../../utils/LyricManager';
@@ -97,6 +97,33 @@ export struct MiniPlayBar {
     // 使用 ScrollAlign.CENTER 确保点击的那行滚动到中间
     this.lyricScroller.scrollToIndex(index, true, ScrollAlign.CENTER);
   }
+
+  // 获取当前播放模式对应的图标
+  getPlaybackModeIcon(): Resource {
+    switch (this.musicState.playbackStatus) {
+      case "顺序播放":
+        return $r('app.media.ic_auto')     // 顺序播放图标
+      case "单曲循环":
+        return $r('app.media.ic_repeat')    // 单曲循环图标
+      case "随机播放":
+        return $r('app.media.ic_random')    // 随机播放图标
+    }
+  }
+
+
+  // 切换播放模式
+  onSwitchPlaybackMode(): void {
+    const status = this.musicState.playbackStatus
+    let nextStatus: PlaybackMode
+
+    if (status === "顺序播放") nextStatus = "单曲循环"
+    else if (status === "单曲循环") nextStatus = "随机播放"
+    else nextStatus = "顺序播放"
+
+    this.musicState.playbackStatus = nextStatus
+  }
+
+
 
 
   // --- 歌词页面构建器 ---
@@ -224,6 +251,11 @@ export struct MiniPlayBar {
           .fillColor(Color.White)
           .onClick(() => avPlayerManage.stopOrContinueSong())
         Image($r('app.media.ic_next')).width(40).fillColor(Color.White).onClick(() => avPlayerManage.nextSong())
+        Image(this.getPlaybackModeIcon())
+          .width(40)
+          .height(40)
+          .fillColor(Color.White)
+          .onClick(() => this.onSwitchPlaybackMode())
       }
     }
     .width('100%')
