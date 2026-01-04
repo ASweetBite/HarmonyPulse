@@ -72,7 +72,7 @@ SDK版本：6.0.1（21）
 
 ### 项目结构
 
- <img src=".\images\项目框架图.png" alt="image-20260104180742151" style="zoom: 50%;" />
+ <img src="images\项目框架图.png" alt="image-20260104180742151" style="zoom: 50%;" />
 
 
 
