@@ -64,13 +64,37 @@ export class LyricManager {
   /**
    * 读取歌词内容
    */
+  // readLyricFile(path: string): string {
+  //   try {
+  //     if (path && fs.accessSync(path)) {
+  //       return fs.readTextSync(path);
+  //     }
+  //   } catch (e) {
+  //     console.error(`Read lyric failed: ${JSON.stringify(e)}`);
+  //   }
+  //   return '';
+  // }
+  /**
+   * 读取歌词内容
+   */
   readLyricFile(path: string): string {
     try {
-      if (path && fs.accessSync(path)) {
+      if (!path) return '';
+
+      // 如果路径是以 datashare:// 或 file:// 开头的 URI，跳过 accessSync 检查
+      // 只有普通沙箱路径才使用 accessSync
+      if (path.startsWith('datashare://') || path.startsWith('file://')) {
+        return fs.readTextSync(path);
+      }
+
+      // 如果是沙箱路径，保留检查逻辑
+      if (fs.accessSync(path)) {
         return fs.readTextSync(path);
       }
     } catch (e) {
-      console.error(`Read lyric failed: ${JSON.stringify(e)}`);
+      // 这里的错误日志能帮你定位问题
+      const err = e as BusinessError;
+      console.error(`Read lyric failed. Code: ${err.code}, Message: ${err.message}`);
     }
     return '';
   }

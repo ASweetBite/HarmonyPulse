@@ -211,6 +211,32 @@ class RdbManager {
       return false;
     }
   }
+  /**
+   * 更新歌曲的歌词信息到数据库
+   */
+  async updateSongLyric(songId: string, lyricPath: string, hasLyric: boolean): Promise<boolean> {
+    if (!this.rdbStore) return false;
+
+    const value: ValuesBucket = {
+      'lyricPath': lyricPath,
+      'hasLyric': hasLyric ? 1 : 0
+    };
+
+    let predicates = new relationalStore.RdbPredicates(this.tableNameSong);
+    predicates.equalTo('id', songId);
+
+    try {
+      const rows = await this.rdbStore.update(value, predicates);
+      console.info(`[RDB] 数据库更新歌词成功: ${songId}, 路径: ${lyricPath}`);
+      return rows > 0;
+    } catch (e) {
+      console.error(`[RDB] 数据库更新歌词失败: ${JSON.stringify(e)}`);
+      return false;
+    }
+  }
+
+
+
 
 
   // ==================== 歌单 (Playlist) 操作 ====================

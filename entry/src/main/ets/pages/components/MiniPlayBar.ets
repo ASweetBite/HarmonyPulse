@@ -1,6 +1,6 @@
 // src/main/ets/components/MiniPlayer.ets
 import { GlobalMusic, PlaybackMode } from '../../type/GlobalMusic';
-import { LyricLine } from '../../type/SongItemType';
+import { LyricLine, SongItemType } from '../../type/SongItemType';
 import { avPlayerManage } from '../../utils/avPlayerMusic';
 import { LyricManager, lyricManager } from '../../utils/LyricManager';
 import { number2time } from '../../utils/TimeUtils';
@@ -22,6 +22,7 @@ export struct MiniPlayBar {
   // 歌词滚动控制器
   private lyricScroller: Scroller = new Scroller();
 
+  @Local isPlayListOpen: boolean = false; // 控制播放列表弹窗
   aboutToAppear() {
     // 组件加载时，订阅歌曲切换事件
     this.musicState.onSongChange(() => {
@@ -243,19 +244,38 @@ export struct MiniPlayBar {
       .margin({ bottom: 30 })
 
       // --- 控制按钮 ---
-      Row({ space: 40 }) {
-        Image($r('app.media.ic_prev')).width(40).fillColor(Color.White).onClick(() => avPlayerManage.preSong())
+      Row({ space: 25 }) {
+        // 1. 新增播放列表按钮
+        Image($r('app.media.ic_list')) // 请确保你有这个图标，如果没有可用 ic_default 代替测试
+          .width(30)
+          .height(30)
+          .fillColor(Color.White)
+          .onClick(() => {
+            this.isPlayListOpen = true;
+          })
+
+        Image($r('app.media.ic_prev'))
+          .width(35)
+          .fillColor(Color.White)
+          .onClick(() => avPlayerManage.preSong())
+
         Image(this.musicState.isPlay ? $r('app.media.ic_paused') : $r('app.media.ic_play'))
-          .width(70)
-          .height(70)
+          .width(65)
+          .height(65)
           .fillColor(Color.White)
           .onClick(() => avPlayerManage.stopOrContinueSong())
-        Image($r('app.media.ic_next')).width(40).fillColor(Color.White).onClick(() => avPlayerManage.nextSong())
+
+        Image($r('app.media.ic_next'))
+          .width(35)
+          .fillColor(Color.White)
+          .onClick(() => avPlayerManage.nextSong())
+
         Image(this.getPlaybackModeIcon())
-          .width(40)
-          .height(40)
+          .width(30)
+          .height(30)
           .fillColor(Color.White)
           .onClick(() => this.onSwitchPlaybackMode())
+
       }
     }
     .width('100%')
@@ -303,6 +323,83 @@ export struct MiniPlayBar {
     .width('100%')
     .height('100%')
     .backgroundColor('#1c1c1e')
+    .bindSheet(this.isPlayListOpen, this.PlayListSheet(), {
+      height: SheetSize.MEDIUM, // 显示一半高度
+      dragBar: true,
+      backgroundColor: '#2c2c2e',
+      onDisappear: () => { this.isPlayListOpen = false }
+    })
+  }
+
+  // --- 播放列表弹窗内容 ---
+  @Builder
+  PlayListSheet() {
+    Column() {
+      Row() {
+        Text("播放列表")
+          .fontSize(20)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(Color.White)
+        Text(`(${this.musicState.songList.length})`)
+          .fontSize(14)
+          .fontColor('#999')
+          .margin({ left: 5 })
+        Blank()
+        Text("关闭")
+          .fontColor(Color.Gray)
+          .onClick(() => { this.isPlayListOpen = false })
+      }
+      .width('100%')
+      .padding(20)
+
+      List() {
+        ForEach(this.musicState.songList, (item: SongItemType, index: number) => {
+          ListItem() {
+            Row() {
+              // 当前播放标识
+              if (this.musicState.currentID === item.id) {
+                Image($r('app.media.ic_play')) // 或者一个音波动画图标
+                  .width(16)
+                  .height(16)
+                  .fillColor('#E23241')
+                  .margin({ right: 10 })
+              }
+
+              Column() {
+                Text(item.name)
+                  .fontSize(16)
+                  .fontColor(this.musicState.currentID === item.id ? '#E23241' : Color.White)
+                  .maxLines(1)
+                Text(item.author)
+                  .fontSize(12)
+                  .fontColor('#999')
+                  .margin({ top: 2 })
+              }
+              .alignItems(HorizontalAlign.Start)
+              .layoutWeight(1)
+
+              Image($r('app.media.ic_more')) // 更多操作按钮
+                .width(20)
+                .fillColor('#666')
+            }
+            .width('100%')
+            .padding({ left: 20, right: 20, top: 12, bottom: 12 })
+            .onClick(() => {
+              // 点击切换音乐
+              avPlayerManage.playResources(item);
+              this.musicState.isPlay = true;
+              // 选做：切换后是否自动关闭列表
+              // this.isPlayListOpen = false;
+            })
+          }
+        }, (item: SongItemType) => item.id)
+      }
+      .width('100%')
+      .layoutWeight(1)
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor('#2c2c2e') // 深色背景
   }
 
   // --- 迷你播放条构建 ---

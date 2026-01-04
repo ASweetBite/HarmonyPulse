@@ -10,6 +10,10 @@ const DOMAIN = 0x0000
 export default class EntryAbility extends UIAbility {
 
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
+    // 1. 初始化所有单例的 Context
+    avPlayerManage.setContext(this.context)
+    lyricManager.setContext(this.context)
+
     try {
       this.context
         .getApplicationContext()
