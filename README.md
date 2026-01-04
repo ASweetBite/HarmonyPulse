@@ -1,4 +1,4 @@
- <img src="E:\os-Application\images\cover.png" alt="cover" style="zoom: 33%;" />
+ <img src=".\images\cover.png" alt="cover" style="zoom: 33%;" />
 
 # 基于 OpenHarmony 的本地音乐播放器（ArkTS + AVPlayer）—比赛方向：OS应用开发赛道/开发应用程序
 
@@ -72,7 +72,7 @@ SDK版本：6.0.1（21）
 
 ### 项目结构
 
- <img src="E:\os-Application\images\项目框架图.png" alt="image-20260104180742151" style="zoom: 50%;" />
+ <img src=".\images\项目框架图.png" alt="image-20260104180742151" style="zoom: 50%;" />
 
 
 
