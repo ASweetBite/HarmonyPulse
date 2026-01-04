@@ -142,7 +142,7 @@ struct PlaylistDetail {
         .width(25)
         .textAlign(TextAlign.Center)
 
-      Image(song.img || $r("app.media.ic_default_list"))
+      Image(song.img || $r("app.media.ic_default"))
         .width(52)
         .height(52)
         .borderRadius(8)
@@ -210,7 +210,7 @@ struct PlaylistDetail {
           ForEach(this.searchResults, (song: SongItemType) => {
             ListItem() {
               Row() {
-                Image(song.img).width(40).height(40).borderRadius(4).margin({ right: 12 })
+                Image(song.img || $r('app.media.ic_default')).width(40).height(40).borderRadius(4).margin({ right: 12 })
                 Column() {
                   Text(song.name).fontSize(14).fontWeight(FontWeight.Medium)
                   Text(song.author).fontSize(11).fontColor('#999')
