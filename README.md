@@ -1,4 +1,4 @@
- <img src=".\images\cover.png" alt="cover" style="zoom: 33%;" />
+ <img src="images/cover.png" alt="cover" style="zoom: 33%;" />
 
 # 基于 OpenHarmony 的本地音乐播放器（ArkTS + AVPlayer）—比赛方向：OS应用开发赛道/开发应用程序
 
