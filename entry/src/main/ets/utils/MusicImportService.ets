@@ -106,7 +106,7 @@ export class MusicImportService {
 
     let title = baseName
     let artist = '未知艺术家'
-    let coverUri = 'ic_music'
+    let coverUri = ''
 
     let extractor: media.AVMetadataExtractor | undefined
     let targetFile: fs.File | undefined

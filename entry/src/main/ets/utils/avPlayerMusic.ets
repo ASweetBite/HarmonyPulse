@@ -170,6 +170,7 @@ class avPlayerMusic {
 
   jumpToPlay(time: number) {
     this.avPlayer?.seek(time)
+    this.avPlayer?.play()
   }
 
   deleteSong(index: number) {

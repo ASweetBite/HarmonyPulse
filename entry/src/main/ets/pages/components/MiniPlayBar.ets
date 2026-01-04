@@ -101,7 +101,7 @@ export struct MiniPlayBar {
                 .fontColor(index === this.currentLyricIndex ? Color.White : 'rgba(255,255,255,0.6)')
                 // --- 视觉特效核心逻辑 ---
                 // 1. 模糊：距离越远，模糊程度越高 (limit 10)
-                .blur(Math.min(Math.abs(index - this.currentLyricIndex) * 1.5, 10))
+                .blur(Math.min(Math.abs(index - this.currentLyricIndex) * 1.5, 7))
                 // 2. 缩放：当前行最大，其他的稍微缩小
                 .scale({
                   x: index === this.currentLyricIndex ? 1.0 : 0.9,
@@ -162,7 +162,7 @@ export struct MiniPlayBar {
       .margin({ bottom: 30 })
 
       // --- 封面 ---
-      Image(this.musicState.img)
+      Image(this.musicState.img ? this.musicState.img : $r('app.media.ic_default'))
         .width('85%')
         .aspectRatio(1)
         .borderRadius(20)
@@ -248,7 +248,7 @@ export struct MiniPlayBar {
   build() {
     Row() {
       // 小封面
-      Image(this.musicState.img)
+      Image(this.musicState.img ? this.musicState.img : $r('app.media.ic_default'))
         .width(40)
         .height(40)
         .borderRadius(4)

@@ -110,7 +110,7 @@ export struct LibraryView {
   @Builder
   SongItemPreview(item: SongItemType) {
     Row() {
-      Image(item.img || $r('app.media.ic_music'))
+      Image(item.img || $r('app.media.ic_default'))
         .width(50)
         .height(50)
         .borderRadius(6)
@@ -141,7 +141,7 @@ export struct LibraryView {
   @Builder
   MusicActionMenu(item: SongItemType, index: number) {
     Menu() {
-      MenuItem({ content: "播放", startIcon: $r('app.media.ic_music') })
+      MenuItem({ content: "播放", startIcon: $r('app.media.ic_default') })
         .onClick(() => {
           this.musicState.isPlay = true;
           avPlayerManage.playResources(item);
@@ -200,7 +200,7 @@ export struct LibraryView {
         ForEach(this.musicState.songList, (item: SongItemType, index: number) => {
           ListItem() {
             Row() {
-              Image(item.img || $r('app.media.ic_music'))
+              Image(item.img || $r('app.media.ic_default'))
                 .width(50)
                 .height(50)
                 .borderRadius(6)
