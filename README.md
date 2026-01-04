@@ -2,6 +2,11 @@
 
 # 基于 OpenHarmony 的本地音乐播放器（ArkTS + AVPlayer）—比赛方向：OS应用开发赛道/开发应用程序
 
+[toc]
+
+📚项目开发文档： [设计开发文档.pdf](设计开发文档.pdf)
+🎥 演示视频：[musicDemo](https://pan.quark.cn/s/64c6d02dce2b)
+
 
 
 ## 基本信息
@@ -10,9 +15,7 @@
 * 比赛方向：OS应用程序开发
 * 队伍编号：T202510423998121
 * 队伍名称：问鼎三尊
-* 题目编号：
-* Project ID：
-
+* 题目编号：project3035747-358315
 * 项目指导教师：李晓慧
 * 项目成员：曲泓勃，任睿哲，郑鑫
 
@@ -78,9 +81,9 @@ SDK版本：6.0.1（21）
 
 ## 仓库目录结构
 
+**只完全展开 `entry`中的 `src`目录**，其他部分保留但不展开：
+
 ```txt
-Folder PATH listing for volume Data
-Volume serial number is 74C8-CA5F
 E:\OS-APPLICATION\PROJECT3035747-358315
 │   .DS_Store
 │   .gitignore
@@ -90,547 +93,41 @@ E:\OS-APPLICATION\PROJECT3035747-358315
 │   list.txt
 │   oh-package-lock.json5
 │   oh-package.json5
-│   
+│
 ├───.hvigor
-│   ├───cache
-│   │       meta.json
-│   │       
-│   ├───dependencyMap
-│   │   │   dependencyMap.json5
-│   │   │   oh-package.json5
-│   │   │   
-│   │   └───entry
-│   │           oh-package.json5
-│   │           
-│   └───outputs
-│       ├───build-logs
-│       │       build.log
-│       │       
-│       └───sync
-│               fileCache.json
-│               output.json
-│               
 ├───.idea
-│   │   .gitignore
-│   │   modules.xml
-│   │   vcs.xml
-│   │   workspace.xml
-│   │   
-│   ├───.deveco
-│   │   │   project.cache.json
-│   │   │   
-│   │   ├───cxx
-│   │   │       .clang-format
-│   │   │       
-│   │   └───module
-│   │           entry.cache.json
-│   │           
-│   └───modules
-│           entry.iml
-│           project3035747-358315.iml
-│           
 ├───AppScope
-│   │   app.json5
-│   │   
-│   └───resources
-│       └───base
-│           ├───element
-│           │       string.json
-│           │       
-│           └───media
-│                   background.png
-│                   ce.jpg
-│                   foreground.png
-│                   icon.png
-│                   ic_auto.svg
-│                   ic_back.svg
-│                   ic_bells_o.svg
-│                   ic_boy.svg
-│                   ic_cd.png
-│                   ic_close.svg
-│                   ic_code.svg
-│                   ic_collect.svg
-│                   ic_comment.svg
-│                   ic_comment_o.svg
-│                   ic_default.png
-│                   ic_download.svg
-│                   ic_download_o.svg
-│                   ic_favorite.svg
-│                   ic_find.svg
-│                   ic_girl.svg
-│                   ic_like.svg
-│                   ic_list.svg
-│                   ic_logo.svg
-│                   ic_mine.svg
-│                   ic_moment.svg
-│                   ic_more.svg
-│                   ic_music.svg
-│                   ic_next.svg
-│                   ic_paused.svg
-│                   ic_play.svg
-│                   ic_playing.gif
-│                   ic_prev.svg
-│                   ic_random.svg
-│                   ic_recommend.svg
-│                   ic_repeat.svg
-│                   ic_search.svg
-│                   ic_share.svg
-│                   ic_single_play.svg
-│                   ic_song_list.svg
-│                   ic_stylus.png
-│                   ic_vip.png
-│                   ic_widget.png
-│                   layered_image.json
-│                   logo.png
-│                   maLouBackground.png
-│                   startIcon.png
-│                   wave.gif
-│                   
 ├───entry
 │   │   .gitignore
 │   │   build-profile.json5
 │   │   hvigorfile.ts
 │   │   obfuscation-rules.txt
 │   │   oh-package.json5
-│   │   
+│   │
 │   └───src
 │       ├───main
-│       │   │   module.json5
-│       │   │   
+│       │   │   module.json5        # 模块配置文件，定义HAP包信息及Ability等[1](@ref)
+│       │   │
 │       │   ├───ets
-│       │   │   ├───entryability
-│       │   │   │       EntryAbility.ets
-│       │   │   │       
-│       │   │   ├───entrybackupability
-│       │   │   │       EntryBackupAbility.ets
-│       │   │   │       
-│       │   │   ├───pages
-│       │   │   │   │   Index.ets
-│       │   │   │   │   layout.ets
-│       │   │   │   │   PlaylistDetail.ets
-│       │   │   │   │   test.ets
-│       │   │   │   │   
-│       │   │   │   ├───components
-│       │   │   │   │       MiniPlayBar.ets
-│       │   │   │   │       
-│       │   │   │   └───views
-│       │   │   │           LibraryView.ets
-│       │   │   │           PlaylistView.ets
-│       │   │   │           
-│       │   │   ├───type
-│       │   │   │       data.ets
-│       │   │   │       GlobalMusic.ets
-│       │   │   │       SongItemType.ets
-│       │   │   │       SongListItemType.ets
-│       │   │   │       
-│       │   │   └───utils
-│       │   │           avPlayerMusic.ets
-│       │   │           AVSessionManager.ets
-│       │   │           LyricManager.ets
-│       │   │           MusicImportService.ets
-│       │   │           RdbManager.ets
-│       │   │           TimeUtils.ets
-│       │   │           
+│       │   │   ├───entryability         # 应用入口及生命周期管理 (EntryAbility.ets)[1,4](@ref)
+│       │   │   ├───entrybackupability    # 备份恢复能力 (EntryBackupAbility.ets)[4](@ref)
+│       │   │   ├───pages                 # UI页面文件 (Index.ets, PlaylistDetail.ets等)[1](@ref)
+│       │   │   ├───components            # 可复用组件 (MiniPlayBar.ets)
+│       │   │   ├───views                 # 视图组件 (LibraryView.ets, PlaylistView.ets)
+│       │   │   ├───type                  # 类型定义 (数据模型、全局状态等)
+│       │   │   └───utils                 # 工具类 (音频播放、数据库管理等)
+│       │   │
 │       │   └───resources
-│       │       ├───base
-│       │       │   ├───element
-│       │       │   │       color.json
-│       │       │   │       float.json
-│       │       │   │       string.json
-│       │       │   │       
-│       │       │   ├───media
-│       │       │   │       background.png
-│       │       │   │       foreground.png
-│       │       │   │       layered_image.json
-│       │       │   │       startIcon.png
-│       │       │   │       
-│       │       │   └───profile
-│       │       │           backup_config.json
-│       │       │           main_pages.json
-│       │       │           route_map.json
-│       │       │           
-│       │       ├───dark
-│       │       │   └───element
-│       │       │           color.json
-│       │       │           
-│       │       └───rawfile
-│       │           └───icon
-│       │                   ic_find.svg
-│       │                   ic_music.svg
-│       │                   ic_recommend.svg
-│       │                   
+│       │       ├───base          # 基础资源 (字符串、颜色、图片等)
+│       │       ├───dark          # 深色模式资源
+│       │       └───rawfile       # 原始资源文件（如图标）
+│       │
 │       ├───mock
-│       │       mock-config.json5
-│       │       
-│       ├───ohosTest
-│       │   │   module.json5
-│       │   │   
-│       │   └───ets
-│       │       └───test
-│       │               Ability.test.ets
-│       │               List.test.ets
-│       │               PlaylistView.test.ets
-│       │               
+│       ├───ohosTest              # 单元测试目录[1,2](@ref)
 │       └───test
-│               List.test.ets
-│               LocalUnit.test.ets
-│               
+│
 ├───hvigor
-│       hvigor-config.json5
-│       
-└───oh_modules
-    ├───.ohpm
-    │   │   lock.json5
-    │   │   
-    │   ├───@ohos+hamock@1.0.0
-    │   │   └───oh_modules
-    │   │       └───@ohos
-    │   │           └───hamock
-    │   │               │   build-profile.json5
-    │   │               │   CHANGELOG.md
-    │   │               │   hvigorfile.js
-    │   │               │   hvigorfile.ts
-    │   │               │   index.d.ts
-    │   │               │   index.ets
-    │   │               │   index.js
-    │   │               │   index.ts
-    │   │               │   LICENSE
-    │   │               │   oh-package.json5
-    │   │               │   README.md
-    │   │               │   
-    │   │               ├───libs
-    │   │               └───src
-    │   │                   ├───main
-    │   │                   │   │   module.json
-    │   │                   │   │   
-    │   │                   │   └───mock
-    │   │                   │           ArgumentMatchers.js
-    │   │                   │           ArgumentMatchers.ts
-    │   │                   │           ExtendInterface.js
-    │   │                   │           ExtendInterface.ts
-    │   │                   │           MockKit.js
-    │   │                   │           MockKit.ts
-    │   │                   │           VerificationMode.js
-    │   │                   │           VerificationMode.ts
-    │   │                   │           
-    │   │                   └───res
-    │   │                       └───schemas
-    │   │                               mock-config-json5-schema.json
-    │   │                               
-    │   ├───@ohos+hypium@1.0.24
-    │   │   └───oh_modules
-    │   │       └───@ohos
-    │   │           └───hypium
-    │   │               │   build-profile.json5
-    │   │               │   BuildProfile.ets
-    │   │               │   CHANGELOG.md
-    │   │               │   consumer-rules.txt
-    │   │               │   hvigorfile.ts
-    │   │               │   index.d.ts
-    │   │               │   index.ets
-    │   │               │   index.js
-    │   │               │   index.ts
-    │   │               │   LICENSE
-    │   │               │   obfuscation-rules.txt
-    │   │               │   oh-package.json5
-    │   │               │   README.md
-    │   │               │   
-    │   │               ├───example
-    │   │               ├───libs
-    │   │               └───src
-    │   │                   └───main
-    │   │                       │   Constant.js
-    │   │                       │   core.js
-    │   │                       │   event.js
-    │   │                       │   interface.js
-    │   │                       │   module.json
-    │   │                       │   service.js
-    │   │                       │   
-    │   │                       ├───module
-    │   │                       │   ├───assert
-    │   │                       │   │   │   assertClose.js
-    │   │                       │   │   │   assertContain.js
-    │   │                       │   │   │   assertFail.js
-    │   │                       │   │   │   assertFalse.js
-    │   │                       │   │   │   assertInstanceOf.js
-    │   │                       │   │   │   assertLarger.js
-    │   │                       │   │   │   assertLargerOrEqual.js
-    │   │                       │   │   │   assertLess.js
-    │   │                       │   │   │   assertLessOrEqual.js
-    │   │                       │   │   │   assertNaN.js
-    │   │                       │   │   │   assertNegUnlimited.js
-    │   │                       │   │   │   assertNull.js
-    │   │                       │   │   │   assertPosUnlimited.js
-    │   │                       │   │   │   assertPromiseIsPending.js
-    │   │                       │   │   │   assertPromiseIsRejected.js
-    │   │                       │   │   │   assertPromiseIsRejectedWith.js
-    │   │                       │   │   │   assertPromiseIsRejectedWithError.js
-    │   │                       │   │   │   assertPromiseIsResolved.js
-    │   │                       │   │   │   assertPromiseIsResolvedWith.js
-    │   │                       │   │   │   assertThrowError.js
-    │   │                       │   │   │   assertUndefined.js
-    │   │                       │   │   │   ExpectExtend.js
-    │   │                       │   │   │   isPromiseLike.js
-    │   │                       │   │   │   
-    │   │                       │   │   └───deepEquals
-    │   │                       │   │           assertDeepEquals.js
-    │   │                       │   │           DeepTypeUtils.js
-    │   │                       │   │           
-    │   │                       │   ├───config
-    │   │                       │   │       configService.js
-    │   │                       │   │       DataDriver.js
-    │   │                       │   │       Filter.js
-    │   │                       │   │       
-    │   │                       │   ├───coverage
-    │   │                       │   │       coverageCollect.js
-    │   │                       │   │       
-    │   │                       │   ├───kit
-    │   │                       │   │       SysTestKit.js
-    │   │                       │   │       
-    │   │                       │   ├───mock
-    │   │                       │   │       ArgumentMatchers.js
-    │   │                       │   │       ExtendInterface.js
-    │   │                       │   │       MockKit.js
-    │   │                       │   │       VerificationMode.js
-    │   │                       │   │       
-    │   │                       │   └───report
-    │   │                       │           LogExpectError.js
-    │   │                       │           OhReport.js
-    │   │                       │           ReportExtend.js
-    │   │                       │           
-    │   │                       └───testrunner
-    │   │                               OpenHarmonyTestRunner.ts
-    │   │                               
-    │   └───oh_modules
-    │       └───@ohos
-    │           ├───hamock
-    │           │   │   build-profile.json5
-    │           │   │   CHANGELOG.md
-    │           │   │   hvigorfile.js
-    │           │   │   hvigorfile.ts
-    │           │   │   index.d.ts
-    │           │   │   index.ets
-    │           │   │   index.js
-    │           │   │   index.ts
-    │           │   │   LICENSE
-    │           │   │   oh-package.json5
-    │           │   │   README.md
-    │           │   │   
-    │           │   ├───libs
-    │           │   └───src
-    │           │       ├───main
-    │           │       │   │   module.json
-    │           │       │   │   
-    │           │       │   └───mock
-    │           │       │           ArgumentMatchers.js
-    │           │       │           ArgumentMatchers.ts
-    │           │       │           ExtendInterface.js
-    │           │       │           ExtendInterface.ts
-    │           │       │           MockKit.js
-    │           │       │           MockKit.ts
-    │           │       │           VerificationMode.js
-    │           │       │           VerificationMode.ts
-    │           │       │           
-    │           │       └───res
-    │           │           └───schemas
-    │           │                   mock-config-json5-schema.json
-    │           │                   
-    │           └───hypium
-    │               │   build-profile.json5
-    │               │   BuildProfile.ets
-    │               │   CHANGELOG.md
-    │               │   consumer-rules.txt
-    │               │   hvigorfile.ts
-    │               │   index.d.ts
-    │               │   index.ets
-    │               │   index.js
-    │               │   index.ts
-    │               │   LICENSE
-    │               │   obfuscation-rules.txt
-    │               │   oh-package.json5
-    │               │   README.md
-    │               │   
-    │               ├───example
-    │               ├───libs
-    │               └───src
-    │                   └───main
-    │                       │   Constant.js
-    │                       │   core.js
-    │                       │   event.js
-    │                       │   interface.js
-    │                       │   module.json
-    │                       │   service.js
-    │                       │   
-    │                       ├───module
-    │                       │   ├───assert
-    │                       │   │   │   assertClose.js
-    │                       │   │   │   assertContain.js
-    │                       │   │   │   assertFail.js
-    │                       │   │   │   assertFalse.js
-    │                       │   │   │   assertInstanceOf.js
-    │                       │   │   │   assertLarger.js
-    │                       │   │   │   assertLargerOrEqual.js
-    │                       │   │   │   assertLess.js
-    │                       │   │   │   assertLessOrEqual.js
-    │                       │   │   │   assertNaN.js
-    │                       │   │   │   assertNegUnlimited.js
-    │                       │   │   │   assertNull.js
-    │                       │   │   │   assertPosUnlimited.js
-    │                       │   │   │   assertPromiseIsPending.js
-    │                       │   │   │   assertPromiseIsRejected.js
-    │                       │   │   │   assertPromiseIsRejectedWith.js
-    │                       │   │   │   assertPromiseIsRejectedWithError.js
-    │                       │   │   │   assertPromiseIsResolved.js
-    │                       │   │   │   assertPromiseIsResolvedWith.js
-    │                       │   │   │   assertThrowError.js
-    │                       │   │   │   assertUndefined.js
-    │                       │   │   │   ExpectExtend.js
-    │                       │   │   │   isPromiseLike.js
-    │                       │   │   │   
-    │                       │   │   └───deepEquals
-    │                       │   │           assertDeepEquals.js
-    │                       │   │           DeepTypeUtils.js
-    │                       │   │           
-    │                       │   ├───config
-    │                       │   │       configService.js
-    │                       │   │       DataDriver.js
-    │                       │   │       Filter.js
-    │                       │   │       
-    │                       │   ├───coverage
-    │                       │   │       coverageCollect.js
-    │                       │   │       
-    │                       │   ├───kit
-    │                       │   │       SysTestKit.js
-    │                       │   │       
-    │                       │   ├───mock
-    │                       │   │       ArgumentMatchers.js
-    │                       │   │       ExtendInterface.js
-    │                       │   │       MockKit.js
-    │                       │   │       VerificationMode.js
-    │                       │   │       
-    │                       │   └───report
-    │                       │           LogExpectError.js
-    │                       │           OhReport.js
-    │                       │           ReportExtend.js
-    │                       │           
-    │                       └───testrunner
-    │                               OpenHarmonyTestRunner.ts
-    │                               
-    └───@ohos
-        ├───hamock
-        │   │   build-profile.json5
-        │   │   CHANGELOG.md
-        │   │   hvigorfile.js
-        │   │   hvigorfile.ts
-        │   │   index.d.ts
-        │   │   index.ets
-        │   │   index.js
-        │   │   index.ts
-        │   │   LICENSE
-        │   │   oh-package.json5
-        │   │   README.md
-        │   │   
-        │   ├───libs
-        │   └───src
-        │       ├───main
-        │       │   │   module.json
-        │       │   │   
-        │       │   └───mock
-        │       │           ArgumentMatchers.js
-        │       │           ArgumentMatchers.ts
-        │       │           ExtendInterface.js
-        │       │           ExtendInterface.ts
-        │       │           MockKit.js
-        │       │           MockKit.ts
-        │       │           VerificationMode.js
-        │       │           VerificationMode.ts
-        │       │           
-        │       └───res
-        │           └───schemas
-        │                   mock-config-json5-schema.json
-        │                   
-        └───hypium
-            │   build-profile.json5
-            │   BuildProfile.ets
-            │   CHANGELOG.md
-            │   consumer-rules.txt
-            │   hvigorfile.ts
-            │   index.d.ts
-            │   index.ets
-            │   index.js
-            │   index.ts
-            │   LICENSE
-            │   obfuscation-rules.txt
-            │   oh-package.json5
-            │   README.md
-            │   
-            ├───example
-            ├───libs
-            └───src
-                └───main
-                    │   Constant.js
-                    │   core.js
-                    │   event.js
-                    │   interface.js
-                    │   module.json
-                    │   service.js
-                    │   
-                    ├───module
-                    │   ├───assert
-                    │   │   │   assertClose.js
-                    │   │   │   assertContain.js
-                    │   │   │   assertFail.js
-                    │   │   │   assertFalse.js
-                    │   │   │   assertInstanceOf.js
-                    │   │   │   assertLarger.js
-                    │   │   │   assertLargerOrEqual.js
-                    │   │   │   assertLess.js
-                    │   │   │   assertLessOrEqual.js
-                    │   │   │   assertNaN.js
-                    │   │   │   assertNegUnlimited.js
-                    │   │   │   assertNull.js
-                    │   │   │   assertPosUnlimited.js
-                    │   │   │   assertPromiseIsPending.js
-                    │   │   │   assertPromiseIsRejected.js
-                    │   │   │   assertPromiseIsRejectedWith.js
-                    │   │   │   assertPromiseIsRejectedWithError.js
-                    │   │   │   assertPromiseIsResolved.js
-                    │   │   │   assertPromiseIsResolvedWith.js
-                    │   │   │   assertThrowError.js
-                    │   │   │   assertUndefined.js
-                    │   │   │   ExpectExtend.js
-                    │   │   │   isPromiseLike.js
-                    │   │   │   
-                    │   │   └───deepEquals
-                    │   │           assertDeepEquals.js
-                    │   │           DeepTypeUtils.js
-                    │   │           
-                    │   ├───config
-                    │   │       configService.js
-                    │   │       DataDriver.js
-                    │   │       Filter.js
-                    │   │       
-                    │   ├───coverage
-                    │   │       coverageCollect.js
-                    │   │       
-                    │   ├───kit
-                    │   │       SysTestKit.js
-                    │   │       
-                    │   ├───mock
-                    │   │       ArgumentMatchers.js
-                    │   │       ExtendInterface.js
-                    │   │       MockKit.js
-                    │   │       VerificationMode.js
-                    │   │       
-                    │   └───report
-                    │           LogExpectError.js
-                    │           OhReport.js
-                    │           ReportExtend.js
-                    │           
-                    └───testrunner
-                            OpenHarmonyTestRunner.ts
-                            
-
+└───oh_modules                    # 项目依赖包存放目录[1,3](@ref)
 ```
 
 
