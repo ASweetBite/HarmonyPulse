@@ -59,6 +59,10 @@ struct PlaylistDetail {
     }
   }
 
+  private isSongAdded(song: SongItemType): boolean {
+    return this.songs.some(item => item.id === song.id);
+  }
+
   // 刷新歌单数据
   async refreshData() {
     if (this.playlistId <= 0) return;
@@ -112,8 +116,10 @@ struct PlaylistDetail {
   private async handleAddSong(song: SongItemType) {
     const success = await RdbManager.addSongToPlaylist(this.playlistId, song.id);
     if (success) {
-      promptAction.showToast({ message: `已添加 ${song.name}` });
+      promptAction.showToast({ message: '添加成功', duration: 1000 });
       this.refreshData(); // 重新加载列表
+    }else{
+      promptAction.showToast({ message: '歌曲已存在', duration: 1000 });
     }
   }
 
@@ -131,6 +137,12 @@ struct PlaylistDetail {
     const h = Math.floor(totalMinutes / 60);
     const m = Math.floor(totalMinutes % 60);
     return h > 0 ? `${h}小时${m}分钟` : `${m}分钟`;
+  }
+
+  async loadDefaultSongs() {
+    this.isLoading = true;
+    this.searchResults = await RdbManager.getAllSongs();
+    this.isLoading = false;
   }
 
   // 歌曲列表单行组件
@@ -182,63 +194,82 @@ struct PlaylistDetail {
   @Builder
   BuildAddSongDialog() {
     Column() {
-      // 顶部条
+      // 顶部装饰条（指示可以下滑或点击关闭）
       Rect()
         .width(40)
         .height(5)
         .fill('#DDD')
         .borderRadius(3)
         .margin({ top: 10, bottom: 20 })
+        .onClick(() => this.showAddSongDialog = false)
 
       Text('添加歌曲到歌单')
         .fontSize(18)
         .fontWeight(FontWeight.Bold)
         .margin({ bottom: 15 })
 
+      // 搜索框
       Search({ placeholder: '搜索音乐、歌手', value: this.searchKeyword })
         .width('100%')
         .height(40)
         .onChange((val) => {
           this.searchKeyword = val;
-          this.searchSongsFromDB();
+          if (val.trim() === '') {
+            this.loadDefaultSongs(); // 搜索清空时恢复默认列表
+          } else {
+            this.searchSongsFromDB();
+          }
         })
         .margin({ bottom: 15 })
 
+      // 歌曲列表
       List() {
         if (this.isLoading) {
-          ListItem() { LoadingProgress().width(40).alignSelf(ItemAlign.Center) }
+          ListItem() {
+            Column() {
+              LoadingProgress().width(40)
+            }.width('100%').margin({ top: 20 })
+          }
         } else {
           ForEach(this.searchResults, (song: SongItemType) => {
             ListItem() {
               Row() {
-                Image(song.img || $r('app.media.ic_default')).width(40).height(40).borderRadius(4).margin({ right: 12 })
+                Image(song.img || $r('app.media.ic_default'))
+                  .width(40).height(40).borderRadius(4).margin({ right: 12 })
                 Column() {
                   Text(song.name).fontSize(14).fontWeight(FontWeight.Medium)
-                  Text(song.author).fontSize(11).fontColor('#999')
+                  Text(song.author).fontSize(11).fontColor('#999').margin({ top: 4 })
                 }.layoutWeight(1).alignItems(HorizontalAlign.Start)
-                Button('添加').fontSize(12).height(26).backgroundColor('#F0F0F0').fontColor('#E23241')
-                  .onClick(() => this.handleAddSong(song))
+
+                // 根据判断结果，动态渲染按钮文本+样式+点击事件
+                Button(this.isSongAdded(song) ? '已添加' : '添加')
+                  .fontSize(12)
+                  .height(26)
+                  .padding({ left: 10, right: 10 })
+                  .backgroundColor(this.isSongAdded(song) ? '#E5E5E5' : '#F0F0F0')
+                  .fontColor(this.isSongAdded(song) ? '#CCCCCC' : '#E23241')
+                  .onClick(() => {
+                    if(!this.isSongAdded(song)) {
+                      this.handleAddSong(song)
+                    }
+                  })
               }
               .width('100%')
-              .padding({ top: 8, bottom: 8 })
+              .padding({ top: 10, bottom: 10 })
             }
-          })
+          }, (item: SongItemType) => item.id.toString()) // 建议增加键值校验
         }
       }
-      .layoutWeight(1)
-
-      Button('完成')
-        .width('100%')
-        .margin({ top: 10 })
-        .backgroundColor('#E23241')
-        .onClick(() => this.showAddSongDialog = false)
+      .layoutWeight(1) // 自动撑满剩余空间，不再需要底部完成按钮
+      .edgeEffect(EdgeEffect.Spring) // 增加回弹效果
     }
     .width('100%')
     .height('85%')
-    .padding(20)
+    .padding({ left: 20, right: 20, bottom: 20 })
     .backgroundColor(Color.White)
     .borderRadius({ topLeft: 20, topRight: 20 })
   }
+
 
   build() {
     Stack({ alignContent: Alignment.Bottom }) {
@@ -266,7 +297,7 @@ struct PlaylistDetail {
               .bindMenu([
                 {
                   value: '修改歌单信息', action: () => { /* 调用 updatePlaylist */
-                }
+                  }
                 },
               ])
           }
@@ -380,18 +411,38 @@ struct PlaylistDetail {
 
 
         // 5. 底部搜索半屏弹窗
+
         if (this.showAddSongDialog) {
           Column() {
-            Blank().onClick(() => this.showAddSongDialog = false)
+            // 遮罩层：点击半透明区域关闭
+            Blank()
+              .width('100%')
+              .layoutWeight(1)
+              .onClick(() => {
+                animateTo({ duration: 300 }, () => {
+                  this.showAddSongDialog = false;
+                })
+              })
+
             this.BuildAddSongDialog()
           }
           .width('100%')
           .height('100%')
           .backgroundColor('#66000000')
-          .transition(TransitionEffect.asymmetric(
-            TransitionEffect.move(TransitionEdge.BOTTOM),
-            TransitionEffect.move(TransitionEdge.BOTTOM)
-          ))
+          // 关键：加入 zIndex 确保在最上层，设置合理的 Transition
+          .zIndex(99)
+          .transition(
+            TransitionEffect.asymmetric(
+              TransitionEffect.move(TransitionEdge.BOTTOM).animation({ duration: 300 }),
+              TransitionEffect.move(TransitionEdge.BOTTOM).animation({ duration: 300 })
+            )
+          )
+          .onAppear(() => {
+            // 弹窗出现时，如果搜索框为空，加载全部歌曲
+            if (this.searchKeyword === '') {
+              this.loadDefaultSongs();
+            }
+          })
         }
       }
       .width('100%')
