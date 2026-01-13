@@ -134,11 +134,6 @@ export struct MiniPlayBar {
     }
   }
 
-  // 辅助方法：处理无歌词情况
-  private setDefaultLyric() {
-    this.lyricList = [{ time: 0, text: "暂无歌词" }];
-  }
-
   // 辅助方法：跳转歌词
   private scrollToLyric(index: number, time: number) {
     clearTimeout(this.timer);
@@ -216,12 +211,10 @@ export struct MiniPlayBar {
   }
 
 
-
-
   @Builder
   LyricPage() {
     Column() {
-      if (this.lyricList.length === 0) {
+      if (this.lyricList.length === 0 || this.musicState.hasLyric === false) {
         Text("暂无歌词")
           .fontColor('rgba(255,255,255,0.4)')
           .margin({ top: 100 })

@@ -10,6 +10,7 @@ export class GlobalMusic {
   @Trace author: string = ""
   @Trace currentID: string = ""
   @Trace lyricPath: string = ""
+  @Trace hasLyric: boolean = false
   @Trace time: number = 0
   @Trace duration: number = 0
   @Trace isPlay: boolean = false // 默认为 false 更合理
@@ -21,7 +22,6 @@ export class GlobalMusic {
   // 核心：播放列表
   //@Trace playList: SongItemType[] = []
   @Trace songList: SongItemType[] = []; // 必须加 @Trace
-  songs: SongItemType[] = []
 
   // 注册监听
   onSongChange(callback: () => void) {
@@ -81,6 +81,7 @@ export class GlobalMusic {
       this.author = item.author;
       this.img = item.img;
       this.lyricPath = item.lyricPath
+      this.hasLyric = item.hasLyric
       this.time = 0;
       this.isPlay = false;
       this.isShowPlayBar = true;

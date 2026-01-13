@@ -87,6 +87,8 @@ export struct LibraryView {
         // 2. 使用单例保存内容
         lyricManager.saveLyricFile(path, lyricText);
         this.editingSong.hasLyric = true;
+        if(this.editingSong.id === this.musicState.currentID)
+          this.musicState.hasLyric = true;
       } else {
         // 如果歌词被清空了
         this.editingSong.hasLyric = false;

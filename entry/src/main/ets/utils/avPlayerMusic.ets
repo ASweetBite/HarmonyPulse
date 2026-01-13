@@ -96,6 +96,7 @@ class avPlayerMusic {
     this.GlobalMusic.author = song.author
     this.GlobalMusic.img = song.img
     this.GlobalMusic.lyricPath = song.lyricPath || ""
+    this.GlobalMusic.hasLyric = song.hasLyric
 
     this.GlobalMusic.notifySongChange();
 

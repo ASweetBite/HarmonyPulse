@@ -25,9 +25,25 @@ export class LyricManager {
    * 解析 .lrc 格式歌词 (这个逻辑不依赖 context，可以保持 static)
    */
   static parseLrc(lrcContent: string): LyricLine[] {
-    const lines = lrcContent.split('\n');
-    const result: LyricLine[] = [];
+    // ============ 新增：前置全量合法性校验【核心】 ============
+    // 1. 空内容、纯空白 → 非法格式
+    if (!lrcContent || lrcContent.trim() === '') {
+      return [];
+    }
+    const pureContent = lrcContent.trim();
     const timeExp = /\[(\d{2}):(\d{2})\.(\d{2,3})\]/g;
+    const lines = pureContent.split('\n').filter(line => line.trim() !== ''); // 过滤空行
+
+    // 2. 核心校验：没有任何一行包含标准的 [mm:ss.ms] 时间戳 → 判定为不符合LRC格式
+    const hasValidTimeFormat = lines.some(line => timeExp.test(line));
+    if (!hasValidTimeFormat) {
+      return [];
+    }
+
+    // ============ 原有解析逻辑 完全保留 ============
+    const result: LyricLine[] = [];
+    // 重置正则lastIndex，避免test后exec匹配异常
+    timeExp.lastIndex = 0;
 
     for (let line of lines) {
       let match: RegExpExecArray | null;
@@ -44,7 +60,9 @@ export class LyricManager {
         timestamps.forEach(time => result.push({ time, text }));
       }
     }
-    return result.sort((a, b) => a.time - b.time);
+
+    // ============ 补充：解析后无有效歌词内容 也返回空 ============
+    return result.length > 0 ? result.sort((a, b) => a.time - b.time) : [];
   }
 
   /**
@@ -61,19 +79,7 @@ export class LyricManager {
     return lyricPath;
   }
 
-  /**
-   * 读取歌词内容
-   */
-  // readLyricFile(path: string): string {
-  //   try {
-  //     if (path && fs.accessSync(path)) {
-  //       return fs.readTextSync(path);
-  //     }
-  //   } catch (e) {
-  //     console.error(`Read lyric failed: ${JSON.stringify(e)}`);
-  //   }
-  //   return '';
-  // }
+
   /**
    * 读取歌词内容
    */
