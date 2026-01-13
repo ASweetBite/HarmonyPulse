@@ -170,14 +170,24 @@ export struct LibraryView {
   // 触发振动的封装函数
   triggerVibration() {
     try {
+      // 触发马达振动
       vibrator.startVibration({
         type: 'preset',
-        effectId: 'haptic.style.medium',
-        count: 1
-      }, { usage: 'touch' });
-    } catch (error) {
-      const err = error as BusinessError;
-      console.error(`Failed to start vibration, code: ${err.code}, message: ${err.message}`);
+        effectId: 'haptic.effect.soft',
+        count: 1,
+        intensity: 50,
+      }, {
+        usage: 'unknown'
+      }, (error: BusinessError) => {
+        if (error) {
+          console.error(`Failed to start vibration. Code: ${error.code}, message: ${error.message}`);
+        } else {
+          console.info('Succeed in starting vibration');
+        }
+      });
+    }catch (error) {
+      let e: BusinessError = error as BusinessError;
+      console.error(`An unexpected error occurred. Code: ${e.code}, message: ${e.message}`);
     }
   }
 
@@ -256,7 +266,9 @@ export struct LibraryView {
           }
         })
     }
-    .onAppear(() => { this.triggerVibration(); })
+    .onAppear(() => { setTimeout(() => {
+      this.triggerVibration();
+    }, 100); })
   }
 
   build() {
@@ -343,6 +355,7 @@ export struct LibraryView {
     })
   }
 }
+
 function copySong(item: SongItemType): SongItemType {
   return {
     id: item.id,

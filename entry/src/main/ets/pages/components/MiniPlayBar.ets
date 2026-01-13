@@ -96,7 +96,7 @@ export struct MiniPlayBar {
     if (this.currentLyricIndex !== activeIndex) {
 
       // --- 高级物理计算 ---
-      const diff = activeIndex - this.currentLyricIndex;
+      const diff = this.currentLyricIndex - activeIndex;
 
       // 这里的逻辑是：
       // 如果 activeIndex 变大（向下唱），diff > 0，内容往上滚，文字应该有向下的惯性拖拽（Offset > 0）
@@ -149,17 +149,10 @@ export struct MiniPlayBar {
     this.targetLyricIndex = index;
 
 
-    const diff = index - this.currentLyricIndex;
-
-    // 这里的逻辑是：
-    // 如果 activeIndex 变大（向下唱），diff > 0，内容往上滚，文字应该有向下的惯性拖拽（Offset > 0）
-    // 如果 activeIndex 变小（往回跳），diff < 0，内容往下滚，文字应该有向上的惯性拖拽（Offset < 0）
+    const diff = this.currentLyricIndex - index;
 
     // 计算原始冲量
     let rawImpulse = diff * OFFSET_PER_LINE;
-
-    // 施加限制（Clamp）：保留符号，但绝对值不超过 MAX_OFFSET_CAP
-    // 比如 diff 是 100，算出 1500，但被限制在 80
     let finalImpulse = Math.sign(rawImpulse) * Math.min(Math.abs(rawImpulse), MAX_OFFSET_CAP);
 
     // 更新索引和列表位置
@@ -169,7 +162,7 @@ export struct MiniPlayBar {
     // --- 第一阶段：快速积蓄势能 (Curve.Sharp) ---
     // 使用 Curve.Sharp 快速让歌词产生位移，避免“闪现”
     animateTo({
-      duration: 200, // 稍微快一点，模拟受力瞬间
+      duration: 180, // 稍微快一点，模拟受力瞬间
       curve: Curve.Sharp
     }, () => {
       this.lyricBounceOffset = finalImpulse;
@@ -183,7 +176,7 @@ export struct MiniPlayBar {
       }, () => {
         this.lyricBounceOffset = 0; // 最终归零
       })
-    }, 180) // 略小于第一阶段 duration，实现无缝衔接
+    }, 160) // 略小于第一阶段 duration，实现无缝衔接
 
     // 5. 同步播放器
     avPlayerManage.jumpToPlay(time);
@@ -242,7 +235,7 @@ export struct MiniPlayBar {
                 .width('100%')
                 .textAlign(TextAlign.Center)
 
-                .fontSize(index === this.currentLyricIndex ? 26 : 22)
+                .fontSize(index === this.currentLyricIndex ? 26 : 26)
                 .fontWeight(
                   index === this.currentLyricIndex
                     ? FontWeight.Medium
@@ -305,6 +298,20 @@ export struct MiniPlayBar {
           }, 2500)
         })
       }
+      Column()
+        .width('100%')
+        .height(80)
+        .backgroundColor('rgba(0,0,0,0.5)')
+        .blur(8)
+        .align(Alignment.Top) // 顶对齐
+
+      // 底部渐隐蒙层
+      Column()
+        .width('100%')
+        .height(80)
+        .backgroundColor('rgba(0,0,0,0.5)')
+        .blur(8)
+        .align(Alignment.Bottom) // 底对齐
     }
     .backgroundColor(Color.Transparent)
   }
@@ -341,13 +348,11 @@ export struct MiniPlayBar {
     return 0.95 + (magnitude / 2000);
   }
 
-
-
   private calculateLiquidBlur(index: number): number {
     if (this.isUserInteracting) return 0;
     const dist = Math.abs(index - this.currentLyricIndex);
     // 除了中心点，其他行带一点点动态模糊，液体感更强
-    return Math.min(dist * 1.2, 8);
+    return Math.min(dist * 2, 8);
   }
 
 
@@ -460,41 +465,45 @@ export struct MiniPlayBar {
   // --- 全屏播放器主入口 ---
   @Builder
   FullScreenPlayer() {
+    NavDestination() {
+      Stack({ alignContent: Alignment.Bottom }) {
+        // 背景层 (当前封面做高斯模糊背景)
+        Image(this.musicState.img)
+          .width('100%')
+          .height('100%')
+          .blur(80) // 极强的背景模糊
+          .opacity(0.5)
 
-    Stack({ alignContent: Alignment.Bottom }) {
-      // 背景层 (当前封面做高斯模糊背景)
-      Image(this.musicState.img)
+        // 黑色遮罩，保证文字清晰度
+        Column().width('100%').height('100%').backgroundColor('rgba(0,0,0,0.5)')
+
+        // 内容层：使用 Swiper 实现左右滑动切换
+        Swiper() {
+          // 第一页：封面和控制
+          this.CoverAndControlsPage()
+
+          // 第二页：歌词
+          this.LyricPage()
+        }
+        .loop(false) // 不循环
+        .indicator(true) // 显示底部的指示点
         .width('100%')
         .height('100%')
-        .blur(80) // 极强的背景模糊
-        .opacity(0.5)
-
-      // 黑色遮罩，保证文字清晰度
-      Column().width('100%').height('100%').backgroundColor('rgba(0,0,0,0.5)')
-
-      // 内容层：使用 Swiper 实现左右滑动切换
-      Swiper() {
-        // 第一页：封面和控制
-        this.CoverAndControlsPage()
-
-        // 第二页：歌词
-        this.LyricPage()
       }
-      .loop(false) // 不循环
-      .indicator(true) // 显示底部的指示点
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM]) // 核心沉浸效果
       .width('100%')
       .height('100%')
+      .backgroundColor('#1c1c1e')
+      .bindSheet(this.isPlayListOpen, this.PlayListSheet(), {
+        height: SheetSize.MEDIUM, // 显示一半高度
+        dragBar: true,
+        backgroundColor: '#2c2c2e',
+        onDisappear: () => {
+          this.isPlayListOpen = false
+        }
+      })
     }
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-    .width('100%')
-    .height('100%')
-    .backgroundColor('#1c1c1e')
-    .bindSheet(this.isPlayListOpen, this.PlayListSheet(), {
-      height: SheetSize.MEDIUM, // 显示一半高度
-      dragBar: true,
-      backgroundColor: '#2c2c2e',
-      onDisappear: () => { this.isPlayListOpen = false }
-    })
+    .hideTitleBar(true)
   }
 
   // --- 播放列表弹窗内容 ---
