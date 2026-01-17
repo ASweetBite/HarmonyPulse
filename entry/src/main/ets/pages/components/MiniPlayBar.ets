@@ -1,7 +1,7 @@
 // src/main/ets/components/MiniPlayer.ets
 import { GlobalMusic, PlaybackMode } from '../../type/GlobalMusic';
 import { LyricLine, SongItemType } from '../../type/SongItemType';
-import { avPlayerManage } from '../../utils/avPlayerMusic';
+import { avPlayerManage } from '../../utils/avPlayerManager';
 import { LyricManager, lyricManager } from '../../utils/LyricManager';
 import { number2time } from '../../utils/TimeUtils';
 import Curves from '@ohos.curves';
@@ -52,9 +52,9 @@ export struct MiniPlayBar {
     if (path) {
       const lrcContent = lyricManager.readLyricFile(path);
       if (lrcContent) {
-        // 1. 原始解析
+        // 原始解析
         const rawList = LyricManager.parseLrc(lrcContent);
-        // 2. --- 核心修改：合并相同时间戳的歌词 ---
+        // 合并相同时间戳的歌词 ---
         const groupedList: LyricLine[] = [];
         rawList.forEach((item: LyricLine) => {
           // 检查新数组最后一项的时间是否与当前项相同
@@ -66,7 +66,6 @@ export struct MiniPlayBar {
             groupedList.push({ time: item.time, text: item.text });
           }
         });
-        // 【关键修复点】：将合并后的 groupedList 赋值给状态变量，而不是 rawList
         this.lyricList = groupedList;
         this.currentLyricIndex = 0;
         this.lyricScroller.scrollToIndex(0);
@@ -95,7 +94,7 @@ export struct MiniPlayBar {
     // 2. 只有行数发生变化才执行
     if (this.currentLyricIndex !== activeIndex) {
 
-      // --- 高级物理计算 ---
+      // --- 计算距离 ---
       const diff = this.currentLyricIndex - activeIndex;
 
       // 这里的逻辑是：
@@ -106,7 +105,6 @@ export struct MiniPlayBar {
       let rawImpulse = diff * OFFSET_PER_LINE;
 
       // 施加限制（Clamp）：保留符号，但绝对值不超过 MAX_OFFSET_CAP
-      // 比如 diff 是 100，算出 1500，但被限制在 80
       let finalImpulse = Math.sign(rawImpulse) * Math.min(Math.abs(rawImpulse), MAX_OFFSET_CAP);
 
       // 更新索引和列表位置
@@ -114,7 +112,6 @@ export struct MiniPlayBar {
       this.lyricScroller.scrollToIndex(activeIndex, true, ScrollAlign.CENTER);
 
       // --- 第一阶段：快速积蓄势能 (Curve.Sharp) ---
-      // 使用 Curve.Sharp 快速让歌词产生位移，避免“闪现”
       animateTo({
         duration: 200, // 稍微快一点，模拟受力瞬间
         curve: Curve.Sharp
@@ -126,11 +123,11 @@ export struct MiniPlayBar {
       setTimeout(() => {
         animateTo({
           duration: 1400, // 慢速回弹，展现液体粘稠感
-          curve: this.liquidCurve // 之前定义的 interpolatingSpring(1, 30, 15)
+          curve: this.liquidCurve
         }, () => {
           this.lyricBounceOffset = 0; // 最终归零
         })
-      }, 180) // 略小于第一阶段 duration，实现无缝衔接
+      }, 180)
     }
   }
 
@@ -291,20 +288,6 @@ export struct MiniPlayBar {
           }, 2500)
         })
       }
-      Column()
-        .width('100%')
-        .height(80)
-        .backgroundColor('rgba(0,0,0,0.5)')
-        .blur(8)
-        .align(Alignment.Top) // 顶对齐
-
-      // 底部渐隐蒙层
-      Column()
-        .width('100%')
-        .height(80)
-        .backgroundColor('rgba(0,0,0,0.5)')
-        .blur(8)
-        .align(Alignment.Bottom) // 底对齐
     }
     .backgroundColor(Color.Transparent)
   }

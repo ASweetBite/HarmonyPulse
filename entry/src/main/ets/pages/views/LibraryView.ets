@@ -1,7 +1,7 @@
 // src/main/ets/views/LibraryView.ets
 import { GlobalMusic } from '../../type/GlobalMusic';
 import { SongItemType } from '../../type/SongItemType';
-import { avPlayerManage } from '../../utils/avPlayerMusic';
+import { avPlayerManage } from '../../utils/avPlayerManager';
 import { promptAction } from '@kit.ArkUI';
 import { vibrator } from '@kit.SensorServiceKit';
 import { BusinessError } from '@kit.BasicServicesKit';
@@ -17,8 +17,12 @@ export struct LibraryView {
   @Local isEditSheetOpen: boolean = false; // 控制编辑页打开
   @Local editingSong: SongItemType | null = null; // 正在编辑的歌曲
   @Local editingLyricText: string = ""; // 正在编辑的歌词文本
-  // 在 LibraryView 类内部添加
-  // 在 LibraryView 结构体内修改 importLyricFromFile 方法
+  @Local forceRefreshKey: string = "0";
+
+  private forceUpdateUI() {
+    this.forceRefreshKey = new Date().getTime().toString() + Math.random().toString(36).substring(2);
+  }
+
   async importLyricFromFile() {
     if (!this.editingSong) return;
     const songId = this.editingSong.id;
@@ -56,15 +60,11 @@ export struct LibraryView {
         // A. 更新 UI 预览变量
         this.editingLyricText = content;
 
-        // B. 【关键】更新数据库记录
-        // 只有这一步做了，下次开机 hasLyric 才是 true
-        await RdbManager.updateSongLyric(songId, destPath, true);
-
         // C. 更新当前正在编辑的对象属性
         this.editingSong.lyricPath = destPath;
         this.editingSong.hasLyric = true;
 
-        promptAction.showToast({ message: "歌词导入并存入数据库" });
+        promptAction.showToast({ message: "歌词导入成功" });
       }
     } catch (err) {
       const error = err as BusinessError;
@@ -75,35 +75,31 @@ export struct LibraryView {
   /**
    * 保存修改后的歌曲信息及歌词
    */
-  saveSongInfo() {
+  async saveSongInfo() {
     if (this.editingSong && this.editingSong.id) {
       const songId = this.editingSong.id;
       const lyricText = this.editingLyricText.trim();
+      const destPath = lyricManager.getOrCreateLyricPath(songId);
 
       if (lyricText.length > 0) {
-        // 1. 使用单例获取路径（内部已包含 Context 逻辑）
-        const path = lyricManager.getOrCreateLyricPath(songId);
-
-        // 2. 使用单例保存内容
-        lyricManager.saveLyricFile(path, lyricText);
         this.editingSong.hasLyric = true;
-        if(this.editingSong.id === this.musicState.currentID)
+        if(this.editingSong.id === this.musicState.currentID){
           this.musicState.hasLyric = true;
+          this.musicState.lyricPath = destPath;
+        }
       } else {
         // 如果歌词被清空了
         this.editingSong.hasLyric = false;
       }
+      lyricManager.saveLyricFile(destPath, lyricText);
+      await RdbManager.updateSongLyric(songId, destPath, lyricText.length > 0);
 
       // 4. 同步更新全局列表（触发 UI 刷新）
-      const index = this.musicState.songList.findIndex(s => s.id === songId);
-      if (index !== -1) {
-        const updatedSong: SongItemType = copySong(this.editingSong)
-        // 使用 splice 确保数组响应式更新
-        this.musicState.songList.splice(index, 1, updatedSong);
-      }
-
+      const updatedSong: SongItemType = copySong(this.editingSong)
+      this.musicState.songList = this.musicState.songList.map(s => s.id === songId ? updatedSong : s);
       promptAction.showToast({ message: "保存成功" });
       this.isEditSheetOpen = false;
+      this.forceUpdateUI();
     }
   }
 
@@ -347,6 +343,7 @@ export struct LibraryView {
       .layoutWeight(1)
       .edgeEffect(EdgeEffect.Spring)
     }
+    .key(this.forceRefreshKey)
     .width('100%')
     .height('100%')
     .backgroundColor(Color.White)

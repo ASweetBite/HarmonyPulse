@@ -1,7 +1,7 @@
 import { AppStorageV2, promptAction, router } from '@kit.ArkUI';
 import { GlobalMusic } from '../type/GlobalMusic';
 import { SongItemType } from '../type/SongItemType';
-import { avPlayerManage } from '../utils/avPlayerMusic';
+import { avPlayerManage } from '../utils/avPlayerManager';
 import RdbManager from '../utils/RdbManager';
 import { MiniPlayBar } from './components/MiniPlayBar';
 

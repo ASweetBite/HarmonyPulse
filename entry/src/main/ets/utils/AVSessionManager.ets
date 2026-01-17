@@ -5,7 +5,7 @@ import { wantAgent } from "@kit.AbilityKit";
 import { GlobalMusic } from "../type/GlobalMusic";
 import { AppStorageV2 } from "@kit.ArkUI";
 import { SongItemType } from "../type/SongItemType";
-import { avPlayerManage } from "./avPlayerMusic";
+import { avPlayerManage } from "./avPlayerManager";
 
 
 class AVSessionManager {

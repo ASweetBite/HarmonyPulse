@@ -6,7 +6,7 @@ import { SessionManager } from './AVSessionManager'
 import { SongItemType } from '../type/SongItemType'
 import { fileIo as fs } from '@kit.CoreFileKit';
 
-class avPlayerMusic {
+class avPlayerManager {
 
   GlobalMusic: GlobalMusic =
     AppStorageV2.connect(GlobalMusic, "GlobalMusic", () => new GlobalMusic())!
@@ -184,4 +184,4 @@ class avPlayerMusic {
   }
 }
 
-export const avPlayerManage = new avPlayerMusic()
+export const avPlayerManage = new avPlayerManager()

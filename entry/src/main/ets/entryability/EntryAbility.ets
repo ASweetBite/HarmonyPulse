@@ -1,7 +1,7 @@
 import { AbilityConstant, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit'
 import { hilog } from '@kit.PerformanceAnalysisKit'
 import { window } from '@kit.ArkUI'
-import { avPlayerManage } from '../utils/avPlayerMusic'
+import { avPlayerManage } from '../utils/avPlayerManager'
 import { SessionManager } from '../utils/AVSessionManager'
 import { lyricManager } from '../utils/LyricManager'
 
