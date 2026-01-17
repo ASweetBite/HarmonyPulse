@@ -2,7 +2,7 @@
   "routerMap": [
     {
       "name": "layout",
-      "pageSourceFile": "src/main/ets/pages/layout.ets",
+      "pageSourceFile": "src/main/ets/pages/MusicIndex.ets",
       "buildFunction": "layoutBuilder",
       "data": {
         "description" : "this is layout"

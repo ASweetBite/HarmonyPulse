@@ -192,6 +192,7 @@ class RdbManager {
     playlistSet.close();
     return result;
   }
+
   /**
    * 根据 ID 从数据库删除单首歌曲
    */

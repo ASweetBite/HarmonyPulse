@@ -29,7 +29,6 @@ export class MusicImportService {
       if (!uris || uris.length === 0) return
 
       for (const uri of uris) {
-        // 【关键点1】调用处传 3 个参数
         const song = await MusicImportService.importSingleFile(uri, context, globalMusic)
         if (song) {
           globalMusic.addSong(song)

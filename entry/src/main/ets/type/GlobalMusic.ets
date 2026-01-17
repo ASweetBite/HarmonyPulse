@@ -10,6 +10,7 @@ export class GlobalMusic {
   @Trace author: string = ""
   @Trace currentID: string = ""
   @Trace lyricPath: string = ""
+  @Trace hasLyric: boolean = false
   @Trace time: number = 0
   @Trace duration: number = 0
   @Trace isPlay: boolean = false // 默认为 false 更合理
@@ -21,7 +22,6 @@ export class GlobalMusic {
   // 核心：播放列表
   //@Trace playList: SongItemType[] = []
   @Trace songList: SongItemType[] = []; // 必须加 @Trace
-  songs: SongItemType[] = []
 
   // 注册监听
   onSongChange(callback: () => void) {
@@ -54,21 +54,7 @@ export class GlobalMusic {
       this.resetToMusic(0);
     }
   }
-  /**
-   * 【新增】删除歌曲：从内存列表中移除，触发 UI 刷新
-   */
-  removeSongById(id: string) {
-    this.songList = this.songList.filter(item => item.id !== id);
-    // 如果删除了当前正在播放的歌，需要处理索引重置逻辑（可选）
-    if (this.currentID === id) {
-      this.isPlay = false;
-      if (this.songList.length > 0) {
-        this.resetToMusic(0);
-      } else {
-        this.isShowPlayBar = false;
-      }
-    }
-  }
+
   /**
    * 切换当前选中的音乐信息（不包含播放逻辑，只更新状态）
    */
@@ -81,6 +67,7 @@ export class GlobalMusic {
       this.author = item.author;
       this.img = item.img;
       this.lyricPath = item.lyricPath
+      this.hasLyric = item.hasLyric
       this.time = 0;
       this.isPlay = false;
       this.isShowPlayBar = true;
