@@ -4,16 +4,80 @@ import { SongItemType } from '../type/SongItemType';
 import { avPlayerManage } from '../utils/avPlayerMusic';
 import RdbManager from '../utils/RdbManager';
 import { MiniPlayBar } from './components/MiniPlayBar';
+import { photoAccessHelper } from '@kit.MediaLibraryKit';
 
 interface PlaylistRouteParams {
   playlistId?: number
   playlistName?: string
 }
 
+// 在 PlaylistDetail.ets 文件外部或顶部定义
+@CustomDialog
+struct EditPlaylistDialog {
+  controller: CustomDialogController;
+  currentName: string = '';
+  currentImg: string = '';
+  onConfirm: (name: string, img: string) => void = () => {};
+
+  @State tempName: string = '';
+  @State selectedImg: string = '';
+
+  aboutToAppear() {
+    this.tempName = this.currentName;
+    this.selectedImg = this.currentImg;
+  }
+
+  async selectImage() {
+    try {
+      let PhotoSelectOptions = new photoAccessHelper.PhotoSelectOptions();
+      PhotoSelectOptions.MIMEType = photoAccessHelper.PhotoViewMIMETypes.IMAGE_TYPE;
+      PhotoSelectOptions.maxSelectNumber = 1;
+      let photoPicker = new photoAccessHelper.PhotoViewPicker();
+      let photoSelectResult = await photoPicker.select(PhotoSelectOptions);
+
+      if (photoSelectResult && photoSelectResult.photoUris.length > 0) {
+        this.selectedImg = photoSelectResult.photoUris[0];
+      }
+    } catch (err) {
+      console.error('选择图片失败: ' + err);
+    }
+  }
+
+  build() {
+    Column() {
+      Text("修改歌单信息").fontSize(20).fontWeight(FontWeight.Bold).margin(20)
+
+      // 封面预览
+      Stack() {
+        Image(this.selectedImg || $r('app.media.ic_default_list'))
+          .width(120).height(120).borderRadius(12).objectFit(ImageFit.Cover)
+        Text("更换封面").fontSize(12).fontColor(Color.White).backgroundColor('#66000000')
+          .width(120).textAlign(TextAlign.Center).padding(4).alignSelf(ItemAlign.End)
+      }
+      .clip(true)
+      .borderRadius(12)
+      .onClick(() => this.selectImage())
+      .margin({ bottom: 20 })
+
+      TextInput({ placeholder: '歌单名称', text: this.tempName })
+        .onChange(v => this.tempName = v)
+        .width('90%').height(48).margin({ bottom: 20 })
+
+      Row() {
+        Button("取消").onClick(() => this.controller.close()).layoutWeight(1).backgroundColor(Color.Transparent).fontColor('#666')
+        Button("保存").onClick(() => {
+          this.onConfirm(this.tempName, this.selectedImg);
+          this.controller.close();
+        }).layoutWeight(1).backgroundColor(Color.Transparent).fontColor('#E23241').fontWeight(FontWeight.Bold)
+      }.width('100%').border({ width: { top: 1 }, color: '#EEE' })
+    }.width('90%').backgroundColor(Color.White).borderRadius(16)
+  }
+}
 
 @Entry
 @Component
 struct PlaylistDetail {
+
   globalMusic: GlobalMusic = AppStorageV2.connect(GlobalMusic, "GlobalMusic", () => new GlobalMusic())!;
   @State playlistName: string = '未命名歌单';
   @State playlistId: number = 0;
@@ -25,6 +89,28 @@ struct PlaylistDetail {
   // 默认封面图
   @State coverImg: string | Resource= "";
 
+  editDialogController: CustomDialogController | null = new CustomDialogController({
+    builder: EditPlaylistDialog({
+      currentName: this.playlistName,
+      // 注意：这里需要根据类型处理一下，因为 coverImg 可能是 Resource
+      currentImg: typeof this.coverImg === 'string' ? this.coverImg : '',
+      onConfirm: (name: string, img: string) => {
+        this.handleUpdatePlaylist(name, img)
+      }
+    }),
+    autoCancel: true,
+    customStyle: true,
+    alignment: DialogAlignment.Center
+  });
+  // --- 逻辑方法区 ---
+  async handleUpdatePlaylist(newName: string, newImg: string) {
+    const success = await RdbManager.updatePlaylist(this.playlistId, newName, newImg);
+    if (success) {
+      this.playlistName = newName;
+      this.coverImg = newImg;
+      promptAction.showToast({ message: '修改成功' });
+    }
+  }
   aboutToAppear(): void {
     const params = router.getParams() as PlaylistRouteParams | undefined;
     if (params) {
@@ -265,9 +351,12 @@ struct PlaylistDetail {
               .height(22)
               .bindMenu([
                 {
-                  value: '修改歌单信息', action: () => { /* 调用 updatePlaylist */
+                  value: '修改歌单信息',
+                  action: () => {
+                    // 这里触发弹窗
+                    this.editDialogController?.open();
+                  }
                 }
-                },
               ])
           }
           .width('100%')
@@ -277,6 +366,31 @@ struct PlaylistDetail {
             top: 12,
             bottom: 12
           })
+          // Row() {
+          //   Image($r('sys.media.ohos_ic_back'))
+          //     .width(26)
+          //     .height(26)
+          //     .onClick(() => router.back())
+          //
+          //   Blank()
+          //
+          //   Image($r('app.media.ic_more')) // 歌单全局更多操作
+          //     .width(22)
+          //     .height(22)
+          //     .bindMenu([
+          //       {
+          //         value: '修改歌单信息', action: () => { /* 调用 updatePlaylist */
+          //       }
+          //       },
+          //     ])
+          // }
+          // .width('100%')
+          // .padding({
+          //   left: 16,
+          //   right: 16,
+          //   top: 12,
+          //   bottom: 12
+          // })
 
           // 3. 歌单封面与信息区
           Row({ space: 20 }) {

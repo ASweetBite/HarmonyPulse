@@ -5,13 +5,13 @@
         "name": "default",
         "type": "HarmonyOS",
         "material": {
-          "certpath": "/Users/rrz/.ohos/config/default_project3035747-358315_6Pq7lQ_cVJ83RhL-NJAQ8XTTlcFgMdwBjX_rkXHp17c=.cer",
+          "certpath": "C:\\Users\\hxhgz\\.ohos\\config\\default_HarmonyMusicPlayer_XSvpybOiSmRa3RZm5OPg0LkfT9NuVAkaAT7WqUTgFb0=.cer",
           "keyAlias": "debugKey",
-          "keyPassword": "0000001B6A33F2AA4C428A180261FB82A33ACBB5D568287551D1F454D7C0D9A2469B2F9ADB50537D4B1B06",
-          "profile": "/Users/rrz/.ohos/config/default_project3035747-358315_6Pq7lQ_cVJ83RhL-NJAQ8XTTlcFgMdwBjX_rkXHp17c=.p7b",
+          "keyPassword": "0000001950861FC7AF698B2407276E664388AF514AF6F5688AECD80D914673E44DE77ED147CA0518E6",
+          "profile": "C:\\Users\\hxhgz\\.ohos\\config\\default_HarmonyMusicPlayer_XSvpybOiSmRa3RZm5OPg0LkfT9NuVAkaAT7WqUTgFb0=.p7b",
           "signAlg": "SHA256withECDSA",
-          "storeFile": "/Users/rrz/.ohos/config/default_project3035747-358315_6Pq7lQ_cVJ83RhL-NJAQ8XTTlcFgMdwBjX_rkXHp17c=.p12",
-          "storePassword": "0000001B9E52B2D101049F02CB7E37383E972E0B4ACC9DBA2532A8FE13CE1A7E5B9819A71B8B6EEB110D28"
+          "storeFile": "C:\\Users\\hxhgz\\.ohos\\config\\default_HarmonyMusicPlayer_XSvpybOiSmRa3RZm5OPg0LkfT9NuVAkaAT7WqUTgFb0=.p12",
+          "storePassword": "00000019D0918DAD82AEA9F108198F1B645F07C1601FCBFAE828BD9D5FB175A64DFC1450DD3B0065B1"
         }
       }
     ],
