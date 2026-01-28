@@ -10,6 +10,7 @@ import { picker } from '@kit.CoreFileKit'; // 导入选择器模块
 import { fileIo as fs } from '@kit.CoreFileKit'; // 确保有 fs 别名用于读取外部文件
 import { util } from '@kit.ArkTS';
 import RdbManager from '../../utils/RdbManager';
+import { MusicShareService } from '../../utils/MusicShareService';
 
 @ComponentV2
 export struct LibraryView {
@@ -241,6 +242,11 @@ export struct LibraryView {
             this.editingLyricText = "";
           }
           this.isEditSheetOpen = true;
+        })
+
+      MenuItem({ content: "分享" })
+        .onClick(() => {
+          MusicShareService.shareSong(item)
         })
 
       MenuItem({ content: '删除' })

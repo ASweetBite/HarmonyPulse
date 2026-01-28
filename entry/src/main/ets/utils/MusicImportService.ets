@@ -83,7 +83,7 @@ export class MusicImportService {
   /**
    * 导入单个音频文件
    */
-  private static async importSingleFile(
+  public static async importSingleFile(
     uri: string,
     context: common.UIAbilityContext,
     globalMusic: GlobalMusic  // <--- 确保这一行存在！

@@ -4,6 +4,7 @@ import { window } from '@kit.ArkUI'
 import { avPlayerManage } from '../utils/avPlayerManager'
 import { SessionManager } from '../utils/AVSessionManager'
 import { lyricManager } from '../utils/LyricManager'
+import { MusicShareService } from '../utils/MusicShareService'
 
 const DOMAIN = 0x0000
 
@@ -13,6 +14,7 @@ export default class EntryAbility extends UIAbility {
     // 1. 初始化所有单例的 Context
     avPlayerManage.setContext(this.context)
     lyricManager.setContext(this.context)
+    MusicShareService.setContext(this.context)
 
     try {
       this.context
@@ -23,9 +25,6 @@ export default class EntryAbility extends UIAbility {
         'Failed to set colorMode. Cause: %{public}s',
         JSON.stringify(err))
     }
-
-    avPlayerManage.setContext(this.context)
-    lyricManager.setContext(this.context)
 
     hilog.info(DOMAIN, 'testTag', 'Ability onCreate')
   }
