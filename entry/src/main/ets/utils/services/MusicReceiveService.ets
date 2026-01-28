@@ -1,9 +1,9 @@
 import { UIAbility, Want } from '@kit.AbilityKit'
 import { systemShare } from '@kit.ShareKit'
 import { BusinessError } from '@kit.BasicServicesKit'
-import { GlobalMusic } from '../type/GlobalMusic' // 假设路径
+import { GlobalMusic } from '../../type/GlobalMusic' // 假设路径
 import { MusicImportService } from './MusicImportService' // 假设路径
-import RdbManager from './RdbManager' // 假设路径
+import RdbManager from '../managers/RdbManager' // 假设路径
 
 export default class ShareReceiveAbility extends UIAbility {
 

@@ -1,7 +1,7 @@
 import relationalStore from '@ohos.data.relationalStore';
-import { SongItemType} from '../type/SongItemType';
+import { SongItemType} from '../../type/SongItemType';
 import common from '@ohos.app.ability.common';
-import { SongListItemType } from '../type/SongListItemType';
+import { SongListItemType } from '../../type/SongListItemType';
 import { ValuesBucket } from '@kit.ArkData';
 
 class RdbManager {

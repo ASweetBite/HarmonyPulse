@@ -1,14 +1,14 @@
 // src/main/ets/components/MiniPlayer.ets
 import { GlobalMusic, PlaybackMode } from '../../type/GlobalMusic';
 import { LyricLine, SongItemType } from '../../type/SongItemType';
-import { avPlayerManage } from '../../utils/avPlayerManager';
-import { LyricManager, lyricManager } from '../../utils/LyricManager';
+import { avPlayerManage } from '../../utils/managers/avPlayerManager';
+import { LyricManager, lyricManager } from '../../utils/managers/LyricManager';
 import { number2time } from '../../utils/TimeUtils';
 import { uniformTypeDescriptor as utd } from '@kit.ArkData';
 import { systemShare, harmonyShare } from '@kit.ShareKit';
 import Curves from '@ohos.curves';
-import RdbManager from '../../utils/RdbManager';
-import { MusicShareService } from '../../utils/MusicShareService';
+import RdbManager from '../../utils/managers/RdbManager';
+import { MusicShareService } from '../../utils/services/MusicShareService';
 
 const OFFSET_PER_LINE = 10;
 const MAX_OFFSET_CAP = 30;
@@ -58,14 +58,14 @@ export struct MiniPlayBar {
     }
   };
 
-
-
   private immersiveListening() {
     harmonyShare.on('gesturesShare', this.immersiveCallback);
+    harmonyShare.on('knockShare', this.immersiveCallback);
   }
 
   private immersiveDisablingListening() {
     harmonyShare.off('gesturesShare', this.immersiveCallback);
+    harmonyShare.off('knockShare', this.immersiveCallback);
   }
 
   aboutToDisappear(): void {
@@ -75,6 +75,11 @@ export struct MiniPlayBar {
     context.eventHub.off('onBackGround', this.onBackGround);
   }
 
+  onPageHide(): void {
+    let uiContext: UIContext = this.getUIContext();
+    let context: Context = uiContext.getHostContext() as Context;
+    context.eventHub.emit('onBackGround');
+  }
 
   aboutToAppear() {
     this.immersiveListening();
@@ -89,6 +94,7 @@ export struct MiniPlayBar {
     // 初始加载一次（防止首首歌不显示）
     this.loadLyricManual();
   }
+
   private onBackGround = () => {
     this.immersiveDisablingListening();
   }

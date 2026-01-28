@@ -2,7 +2,7 @@ import { AppStorageV2, promptAction } from '@kit.ArkUI';
 import { SongItemType } from '../../type/SongItemType';
 import { SongListItemType } from '../../type/SongListItemType';
 // 请确保路径正确引入你的数据库管理类
-import RdbManager  from '../../utils/RdbManager';
+import RdbManager  from '../../utils/managers/RdbManager';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { fileIo } from '@kit.CoreFileKit';
 import { GlobalMusic } from '../../type/GlobalMusic';

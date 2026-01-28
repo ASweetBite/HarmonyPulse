@@ -1,10 +1,10 @@
 import { AbilityConstant, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit'
 import { hilog } from '@kit.PerformanceAnalysisKit'
 import { window } from '@kit.ArkUI'
-import { avPlayerManage } from '../utils/avPlayerManager'
-import { SessionManager } from '../utils/AVSessionManager'
-import { lyricManager } from '../utils/LyricManager'
-import { MusicShareService } from '../utils/MusicShareService'
+import { avPlayerManage } from '../utils/managers/avPlayerManager'
+import { SessionManager } from '../utils/managers/AVSessionManager'
+import { lyricManager } from '../utils/managers/LyricManager'
+import { MusicShareService } from '../utils/services/MusicShareService'
 
 const DOMAIN = 0x0000
 

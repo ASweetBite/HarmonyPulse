@@ -1,9 +1,9 @@
 import media from '@ohos.multimedia.media'
 import { common } from '@kit.AbilityKit'
-import { GlobalMusic } from '../type/GlobalMusic'
+import { GlobalMusic } from '../../type/GlobalMusic'
 import { AppStorageV2 } from '@kit.ArkUI'
 import { SessionManager } from './AVSessionManager'
-import { SongItemType } from '../type/SongItemType'
+import { SongItemType } from '../../type/SongItemType'
 import { fileIo as fs } from '@kit.CoreFileKit';
 
 class avPlayerManager {

@@ -2,9 +2,9 @@ import { avSession } from "@kit.AVSessionKit";
 import { hilog } from "@kit.PerformanceAnalysisKit";
 import { backgroundTaskManager } from "@kit.BackgroundTasksKit";
 import { wantAgent } from "@kit.AbilityKit";
-import { GlobalMusic } from "../type/GlobalMusic";
+import { GlobalMusic } from "../../type/GlobalMusic";
 import { AppStorageV2 } from "@kit.ArkUI";
-import { SongItemType } from "../type/SongItemType";
+import { SongItemType } from "../../type/SongItemType";
 import { avPlayerManage } from "./avPlayerManager";
 
 

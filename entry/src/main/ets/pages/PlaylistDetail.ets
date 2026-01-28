@@ -1,8 +1,8 @@
 import { AppStorageV2, promptAction, router } from '@kit.ArkUI';
 import { GlobalMusic } from '../type/GlobalMusic';
 import { SongItemType } from '../type/SongItemType';
-import { avPlayerManage } from '../utils/avPlayerManager';
-import RdbManager from '../utils/RdbManager';
+import { avPlayerManage } from '../utils/managers/avPlayerManager';
+import RdbManager from '../utils/managers/RdbManager';
 import { MiniPlayBar } from './components/MiniPlayBar';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 
@@ -110,6 +110,7 @@ struct PlaylistDetail {
       promptAction.showToast({ message: '修改成功' });
     }
   }
+
   aboutToAppear(): void {
     const params = router.getParams() as PlaylistRouteParams | undefined;
     if (params) {

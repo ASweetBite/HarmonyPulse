@@ -7,8 +7,8 @@ import { LibraryView } from './views/LibraryView';
 import { PlaylistView } from './views/PlaylistView';
 import { common } from '@kit.AbilityKit';
 import { BusinessError } from '@kit.BasicServicesKit';
-import { MusicImportService } from '../utils/MusicImportService';
-import RdbManager from '../utils/RdbManager';
+import { MusicImportService } from '../utils/services/MusicImportService';
+import RdbManager from '../utils/managers/RdbManager';
 import { SongListItemType } from '../type/SongListItemType';
 
 @Builder

@@ -1,5 +1,5 @@
 import fs from '@ohos.file.fs'
-import { LyricLine } from '../type/SongItemType';
+import { LyricLine } from '../../type/SongItemType';
 import common from '@ohos.app.ability.common';
 
 export class LyricManager {

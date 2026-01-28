@@ -1,16 +1,16 @@
 // src/main/ets/views/LibraryView.ets
 import { GlobalMusic } from '../../type/GlobalMusic';
 import { SongItemType } from '../../type/SongItemType';
-import { avPlayerManage } from '../../utils/avPlayerManager';
+import { avPlayerManage } from '../../utils/managers/avPlayerManager';
 import { promptAction } from '@kit.ArkUI';
 import { vibrator } from '@kit.SensorServiceKit';
 import { BusinessError } from '@kit.BasicServicesKit';
-import { lyricManager } from '../../utils/LyricManager'; // 确保导入路径正确
+import { lyricManager } from '../../utils/managers/LyricManager'; // 确保导入路径正确
 import { picker } from '@kit.CoreFileKit'; // 导入选择器模块
 import { fileIo as fs } from '@kit.CoreFileKit'; // 确保有 fs 别名用于读取外部文件
 import { util } from '@kit.ArkTS';
-import RdbManager from '../../utils/RdbManager';
-import { MusicShareService } from '../../utils/MusicShareService';
+import RdbManager from '../../utils/managers/RdbManager';
+import { MusicShareService } from '../../utils/services/MusicShareService';
 
 @ComponentV2
 export struct LibraryView {

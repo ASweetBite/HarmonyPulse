@@ -2,7 +2,7 @@ import { systemShare } from '@kit.ShareKit';
 import { uniformTypeDescriptor as utd } from '@kit.ArkData';
 import { common } from '@kit.AbilityKit';
 import { fileUri } from '@kit.CoreFileKit';
-import { SongItemType } from '../type/SongItemType';
+import { SongItemType } from '../../type/SongItemType';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { fileIo as fs } from '@kit.CoreFileKit'; // 引入 fs 用于检查文件是否存在
 
