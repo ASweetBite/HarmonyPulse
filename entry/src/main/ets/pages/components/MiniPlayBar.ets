@@ -4,7 +4,11 @@ import { LyricLine, SongItemType } from '../../type/SongItemType';
 import { avPlayerManage } from '../../utils/avPlayerManager';
 import { LyricManager, lyricManager } from '../../utils/LyricManager';
 import { number2time } from '../../utils/TimeUtils';
+import { uniformTypeDescriptor as utd } from '@kit.ArkData';
+import { systemShare, harmonyShare } from '@kit.ShareKit';
 import Curves from '@ohos.curves';
+import RdbManager from '../../utils/RdbManager';
+import { MusicShareService } from '../../utils/MusicShareService';
 
 const OFFSET_PER_LINE = 10;
 const MAX_OFFSET_CAP = 30;
@@ -33,9 +37,50 @@ export struct MiniPlayBar {
   private targetLyricIndex: number = -1;      // 目标索引
   private jumpLockTimer: number = -1; // 专门用于处理跳转锁的定时器
   private liquidCurve = Curves.interpolatingSpring(5, 1.5, 60, 12);
-  private shapCurve = Curves.cubicBezierCurve(0.3, 0, 0.6, 1)
+  //隔空传送相关
+  private immersiveCallback = async (sharableTarget: harmonyShare.SharableTarget) => {
+    try {
+      const song = await RdbManager.getSongById(this.musicState.currentID);
+
+      if (!song) {
+        console.warn('当前歌曲不存在，无法分享');
+        return;
+      }
+
+      const audioRecord: systemShare.SharedRecord = MusicShareService.buildSharedRecord(song);
+      const shareData: systemShare.SharedData = new systemShare.SharedData(audioRecord);
+
+      await sharableTarget.share(shareData);
+
+      console.info('分享成功:', song.name);
+    } catch (err) {
+      console.error('分享失败:', err);
+    }
+  };
+
+
+
+  private immersiveListening() {
+    harmonyShare.on('gesturesShare', this.immersiveCallback);
+  }
+
+  private immersiveDisablingListening() {
+    harmonyShare.off('gesturesShare', this.immersiveCallback);
+  }
+
+  aboutToDisappear(): void {
+    this.immersiveDisablingListening();
+    let uiContext: UIContext = this.getUIContext();
+    let context: Context = uiContext.getHostContext() as Context;
+    context.eventHub.off('onBackGround', this.onBackGround);
+  }
+
 
   aboutToAppear() {
+    this.immersiveListening();
+    let uiContext: UIContext = this.getUIContext();
+    let context: Context = uiContext.getHostContext() as Context;
+    context.eventHub.on('onBackGround', this.onBackGround);
     // 组件加载时，订阅歌曲切换事件
     this.musicState.onSongChange(() => {
       this.loadLyricManual();
@@ -43,6 +88,9 @@ export struct MiniPlayBar {
 
     // 初始加载一次（防止首首歌不显示）
     this.loadLyricManual();
+  }
+  private onBackGround = () => {
+    this.immersiveDisablingListening();
   }
 
   loadLyricManual() {
