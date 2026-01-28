@@ -175,7 +175,6 @@ class avPlayerManager {
 
   deleteSong(index: number) {
     this.GlobalMusic.songList.splice(index, 1)
-    // 如果删除的是当前播放的歌曲，建议调用 nextSong()
   }
 
   async release() {

@@ -86,7 +86,7 @@ export class MusicImportService {
   public static async importSingleFile(
     uri: string,
     context: common.UIAbilityContext,
-    globalMusic: GlobalMusic  // <--- 确保这一行存在！
+    globalMusic: GlobalMusic
   ): Promise<SongItemType | null> {
 
     const decodeUri = decodeURIComponent(uri)
@@ -188,5 +188,74 @@ export class MusicImportService {
     await packer.packToFile(pixelMap, file.fd, { format: 'image/jpeg', quality: 80 })
     fs.closeSync(file)
     return `file://${coverPath}`
+  }
+
+  /**
+   * 删除与歌曲关联的歌词文件。
+   * 此方法只负责文件系统的删除操作。
+   * @param lyricPath 歌词文件的完整路径（需要转换为本地文件系统路径，如果它是一个URI）。
+   */
+  private static async _deleteLyricFileInternal(lyricPath: string): Promise<void> {
+    // 假设 lyricPath 已经是完整的本地文件路径或 fs 可以直接处理的路径
+    // 由于歌词管理器通常返回的可能是 {context.filesDir}/{id}.lrc 这样的路径，我们直接使用。
+    // 如果 lyricManager.getOrCreateLyricPath 返回的是 file:// URI，需要做兼容处理
+    let pathToDelete = lyricPath;
+    if (pathToDelete.startsWith('file://')) {
+      pathToDelete = pathToDelete.substring('file://'.length);
+    }
+
+    try {
+      if (fs.accessSync(pathToDelete)) {
+        fs.unlinkSync(pathToDelete);
+        console.info(`文件系统: 已删除歌词文件: ${pathToDelete}`);
+      } else {
+        console.warn(`文件系统: 歌词文件不存在，跳过删除: ${pathToDelete}`);
+      }
+    } catch (e) {
+      console.error(`文件系统: 删除歌词文件失败 (${pathToDelete}): ${JSON.stringify(e)}`);
+    }
+  }
+
+  /**
+   * 删除指定的歌曲，包括清理文件、数据库和本地缓存。
+   * @param context UIAbilityContext，用于文件操作和首选项。
+   * @param globalMusic 全局音乐数据管理实例。
+   * @param songToDelete 要删除的歌曲对象。
+   */
+  public static async deleteSongs(
+    context: common.UIAbilityContext,
+    songToDelete: SongItemType
+  ): Promise<void> {
+    console.info(`开始删除歌曲: ${songToDelete.name} (ID: ${songToDelete.id})`)
+
+    // 1. 清理本地文件
+    try {
+      // 清理音频文件
+      const audioFilePath = `${context.filesDir}/${songToDelete.filePath}`
+      if (fs.accessSync(audioFilePath)) {
+        fs.unlinkSync(audioFilePath)
+        console.info(`已删除音频文件: ${audioFilePath}`)
+      } else {
+        console.warn(`音频文件不存在，跳过删除: ${audioFilePath}`)
+      }
+
+      // 清理封面图片文件 (如果存在)
+      if (songToDelete.img && songToDelete.img.startsWith('file://')) {
+        const coverPath = songToDelete.img.substring('file://'.length)
+        if (fs.accessSync(coverPath)) {
+          fs.unlinkSync(coverPath)
+          console.info(`已删除封面文件: ${coverPath}`)
+        } else {
+          console.warn(`封面文件不存在，跳过删除: ${coverPath}`)
+        }
+      }
+
+      // 2. 清理歌词文件 (调用内部文件删除函数)
+      await MusicImportService._deleteLyricFileInternal(songToDelete.lyricPath)
+      console.info(`已尝试删除歌词文件 (路径: ${songToDelete.lyricPath})`)
+
+    } catch (e) {
+      console.error(`文件清理过程中发生错误: ${JSON.stringify(e)}`)
+    }
   }
 }

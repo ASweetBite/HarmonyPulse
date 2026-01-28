@@ -11,6 +11,8 @@ import { fileIo as fs } from '@kit.CoreFileKit'; // 确保有 fs 别名用于读
 import { util } from '@kit.ArkTS';
 import RdbManager from '../../utils/managers/RdbManager';
 import { MusicShareService } from '../../utils/services/MusicShareService';
+import { MusicImportService } from '../../utils/services/MusicImportService';
+import { common } from '@kit.AbilityKit';
 
 @ComponentV2
 export struct LibraryView {
@@ -263,8 +265,12 @@ export struct LibraryView {
               ]
             }).then((result) => {
               if (result.index === 1) {
+                if(item.id === this.musicState.currentID)
+                  avPlayerManage.nextSong();
                 avPlayerManage.deleteSong(index);
                 RdbManager.deleteSongById(item.id);
+                const context = getContext(this) as common.UIAbilityContext;
+                MusicImportService.deleteSongs(context,item)
               }
             })
           }
