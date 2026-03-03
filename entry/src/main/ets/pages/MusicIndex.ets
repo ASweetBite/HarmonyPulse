@@ -10,6 +10,7 @@ import { BusinessError } from '@kit.BasicServicesKit';
 import { MusicImportService } from '../utils/services/MusicImportService';
 import RdbManager from '../utils/managers/RdbManager';
 import { SongListItemType } from '../type/SongListItemType';
+import { AppSignal } from '../type/AppSignal';
 
 @Builder
 export function layoutBuilder() {
@@ -24,31 +25,33 @@ struct MusicIndex {
   @Local isRdbReady: boolean = false; // 数据库准备状态
   private swiperController: SwiperController = new SwiperController();
 
+  @Local appSignal: AppSignal = AppStorageV2.connect(AppSignal, "AppSignal", () => new AppSignal())!;
+  // 2. 使用 @Monitor 监听信号类中的属性
+  // 当 shareImportCount 发生变化时执行
+  @Monitor("appSignal.shareImportCount")
+  async onShareImportChanged() {
+    console.info('MusicIndex: 检测到分享导入，准备重新加载数据库');
+    await this.refreshDataFromDb();
+  }
+
+  async refreshDataFromDb() {
+    try {
+      const allSongs = await RdbManager.getAllSongs();
+      // 这里确保 GlobalMusic 类也使用了 @ObservedV2 和 @Trace
+      this.globalMusic.songList = allSongs;
+    } catch (e) {
+      console.error('刷新失败');
+    }
+  }
   // 页面加载时初始化数据
-  // 修改为 async，确保加载顺序
   async aboutToAppear() {
     console.info('MusicPlayer: 页面开始初始化');
     const context = getContext(this) as common.UIAbilityContext;
 
     try {
-      // 1. 初始化数据库并建表
-      await RdbManager.initRdb(context);
-      console.info('MusicPlayer: 数据库初始化完成');
-
-      // 2. 从数据库获取所有歌曲（代替原来的 loadSongs）
-      let allSongs = await RdbManager.getAllSongs();
-
-      // 3. 判断是否是初次运行：如果数据库里一首歌都没有，则导入默认写死的数据
-      if (allSongs.length === 0) {
-        console.info('MusicPlayer: 数据库为空，正在导入默认内置歌曲');
-        // 重新获取数据
-        allSongs = await RdbManager.getAllSongs();
-      }
-
-      // 4. 将数据库中的数据同步到全局状态 globalMusic，驱动 UI 显示
-      this.globalMusic.songList = allSongs;
-      console.info(`MusicPlayer: 成功从数据库加载了 ${allSongs.length} 首歌`);
-      this.isRdbReady = true; // 标记数据库已就绪
+      await RdbManager.initRdb(getContext(this));
+      await this.refreshDataFromDb();
+      this.isRdbReady = true;
     } catch (e) {
       const err = e as BusinessError;
       console.error(`MusicPlayer: 初始化失败. Code: ${err.code}, Msg: ${err.message}`);

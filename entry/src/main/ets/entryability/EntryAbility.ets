@@ -1,10 +1,11 @@
 import { AbilityConstant, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit'
 import { hilog } from '@kit.PerformanceAnalysisKit'
-import { window } from '@kit.ArkUI'
+import { AppStorageV2, window } from '@kit.ArkUI'
 import { avPlayerManage } from '../utils/managers/avPlayerManager'
 import { SessionManager } from '../utils/managers/AVSessionManager'
 import { lyricManager } from '../utils/managers/LyricManager'
 import { MusicShareService } from '../utils/services/MusicShareService'
+import { AppSignal } from '../type/AppSignal'
 
 const DOMAIN = 0x0000
 
@@ -15,6 +16,7 @@ export default class EntryAbility extends UIAbility {
     avPlayerManage.setContext(this.context)
     lyricManager.setContext(this.context)
     MusicShareService.setContext(this.context)
+    this.handleWant(want);
 
     try {
       this.context
@@ -52,12 +54,26 @@ export default class EntryAbility extends UIAbility {
     })
   }
 
+  onNewWant(want: Want, launchParam: AbilityConstant.LaunchParam): void {
+    hilog.info(DOMAIN, 'testTag', 'Ability onNewWant')
+    this.handleWant(want);
+  }
+
   onWindowStageDestroy(): void {
     hilog.info(DOMAIN, 'testTag', 'Ability onWindowStageDestroy')
 
     // 释放播放器和会话
     avPlayerManage.release()
     SessionManager.DestroySession()
+  }
+
+  handleWant(want: Want) {
+    if (want.parameters?.isFromShare) {
+      console.info('EntryAbility: 接收到分享导入标记');
+      // 更新 AppStorageV2 中的全局信号
+      const signal = AppStorageV2.connect(AppSignal, "AppSignal", () => new AppSignal())!;
+      signal.shareImportCount++; // 这一步会触发 MusicIndex 的 @Monitor
+    }
   }
 
   onDestroy(): void {

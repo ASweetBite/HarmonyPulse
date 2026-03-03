@@ -11,6 +11,10 @@
     {
       "name": "EntryAbility_label",
       "value": "HarmonyPulse"
+    },
+    {
+      "name": "ShareReceive_Lable",
+      "value": "导入音乐"
     }
   ]
 }

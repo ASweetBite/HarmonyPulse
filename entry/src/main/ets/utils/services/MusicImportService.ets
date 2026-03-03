@@ -63,20 +63,23 @@ export class MusicImportService {
   }
 
   /**
-   * 函数二：从首选项恢复歌曲列表
-   * 在 App 启动（如 EntryAbility 或主页 Entry 组件）时调用
+   * 修正版：从数据库加载歌曲列表
    */
-  static async loadSongs(context: common.UIAbilityContext, globalMusic: GlobalMusic): Promise<void> {
+  static async loadSongs(context: common.Context, globalMusic: GlobalMusic): Promise<void> {
     try {
-      const pref = await preferences.getPreferences(context, PREF_NAME)
-      const jsonStr = await pref.get(KEY_SONG_LIST, '[]') as string
-      const list = JSON.parse(jsonStr) as SongItemType[]
+      // 1. 确保数据库已初始化
+      await RdbManager.initRdb(context);
 
-      if (list && list.length > 0) {
-        list.forEach((item: SongItemType) => { globalMusic.addSong(item) })
-      }
+      // 2. 从数据库获取最新数据
+      const allSongs = await RdbManager.getAllSongs();
+
+      // 3. 直接赋值给全局状态（配合 @Trace 触发 UI 刷新）
+      // 不要用 forEach add，直接替换数组效率更高且能保证同步
+      globalMusic.songList = allSongs;
+
+      console.info(`MusicImportService: 已加载 ${allSongs.length} 首歌曲`);
     } catch (e) {
-      console.error('读取歌曲列表失败', JSON.stringify(e))
+      console.error('加载歌曲列表失败', JSON.stringify(e));
     }
   }
 

@@ -2,6 +2,7 @@
   "src": [
     "pages/Index",
     "pages/MusicIndex",
-    "pages/PlaylistDetail"
+    "pages/PlaylistDetail",
+    "pages/ShareLoadingPage"
   ]
 }

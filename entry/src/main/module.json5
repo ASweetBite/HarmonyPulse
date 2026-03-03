@@ -50,26 +50,27 @@
         ]
       },
       {
-        "name": "UIAbility",
-        "srcEntry": "./ets/entryability/EntryAbility.ets",
-        "description": "$string:EntryAbility_desc",
+        "name": "ShareReceiveAbility", // 1. 这里必须和你的类名一致
+        "srcEntry": "./ets/utils/services/MusicReceiveService.ets", // 2. 这里必须指向你写的那个接收分享的文件路径
+        "description": "接收分享的Ability",
         "icon": "$media:layered_image",
-        "label": "$string:EntryAbility_label",
-        "startWindowIcon": "$media:startIcon",
+        "label": "$string:ShareReceive_Lable", // 分享面板上显示的文字
+        "startWindowIcon": "$media:logo",
         "startWindowBackground": "$color:start_window_background",
         "exported": true,
         "skills": [
           {
             "actions": [
-              "ohos.want.action.sendData"
+              "ohos.want.action.sendData" // 接收单文件
             ],
-            // scheme为预留字段，在此处不生效，配置file仅为示例
-            // 目标应用在配置支持接收的数据类型时，需穷举支持的UTD，比如：支持全部图片类型，可声明：general.image
-            // maxFileSupported 对于归属指定类型的文件，标识一次支持接收的最大数量。默认为0，代表不支持此类文件的分享。
-            // 文件类型归属关系参考：@ohos.data.uniformTypeDescriptor (标准化数据定义与描述)
             "uris": [
               {
                 "scheme": "file",
+                "utd": "general.audio",
+                "maxFileSupported": 1
+              },
+              {
+                "scheme": "content", // 3. 必须添加 content 协议支持
                 "utd": "general.audio",
                 "maxFileSupported": 1
               }
