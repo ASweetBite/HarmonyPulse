@@ -21,6 +21,7 @@ export struct LibraryView {
   @Local editingSong: SongItemType | null = null; // 正在编辑的歌曲
   @Local editingLyricText: string = ""; // 正在编辑的歌词文本
   @Local forceRefreshKey: string = "0";
+  @Local selectedIds: string[] = [];    // 已选中的歌曲ID列表
 
   private forceUpdateUI() {
     this.forceRefreshKey = new Date().getTime().toString() + Math.random().toString(36).substring(2);
@@ -248,7 +249,15 @@ export struct LibraryView {
 
       MenuItem({ content: "分享" })
         .onClick(() => {
-          MusicShareService.shareSong(item)
+            MusicShareService.shareSong(item)
+        })
+
+      MenuItem({ content: "多选"}) // 建议添加一个图标
+        .onClick(() => {
+          animateTo({ duration: 300, curve: Curve.EaseInOut }, () => {
+            this.musicState.isSelecting = true;
+          });
+          this.selectedIds = [item.id];
         })
 
       MenuItem({ content: '删除' })
@@ -281,79 +290,288 @@ export struct LibraryView {
     }, 100); })
   }
 
+  @Builder
+  MultiSelectActionBar() {
+    Row() {
+      // 1. 批量删除
+      Column() {
+        Image($r('app.media.ic_delete')).width(24).height(24).fillColor(Color.Red)
+        Text("删除").fontSize(12).fontColor(Color.Red).margin({ top: 4 })
+      }
+      .layoutWeight(1)
+      .onClick(() => this.handleBatchDelete())
+
+      // 2. 批量分享
+      Column() {
+        Image($r('app.media.ic_share')).width(24).height(24)
+        Text("分享").fontSize(12).margin({ top: 4 })
+      }
+      .layoutWeight(1)
+      .onClick(() => this.handleBatchShare())
+
+      // 3. 添加到歌单
+      Column() {
+        Image($r('app.media.ic_add_to_playlist')).width(24).height(24)
+        Text("收藏").fontSize(12).margin({ top: 4 })
+      }
+      .layoutWeight(1)
+      .onClick(() => {
+        promptAction.showToast({ message: "功能开发中：弹出歌单选择列表" })
+      })
+    }
+    .width('100%')
+    .height(80)
+    .backgroundColor('#F9F9F9')
+    .padding({ bottom: 20 })
+    .border({ width: { top: 1 }, color: '#EEEEEE' })
+  }
+
+  // 批量删除逻辑
+  async handleBatchDelete() {
+    if (this.selectedIds.length === 0) return;
+
+    const result = await this.getUIContext().getPromptAction().showDialog({
+      title: '批量删除',
+      message: `确定要删除选中的 ${this.selectedIds.length} 首歌曲吗？`,
+      buttons: [
+        { text: '取消', color: '#999999' },
+        { text: '删除', color: '#FF3B30' }
+      ]
+    });
+
+    if (result.index === 1) {
+      const context = getContext(this) as common.UIAbilityContext;
+
+      // 过滤出未被选中的歌曲，更新 UI
+      const remainingSongs = this.musicState.songList.filter(s => !this.selectedIds.includes(s.id));
+      const deleteSongs = this.musicState.songList.filter(s => this.selectedIds.includes(s.id));
+
+      for (let song of deleteSongs) {
+        // 如果正在播放其中一首，先切歌
+        if (song.id === this.musicState.currentID) {
+          avPlayerManage.nextSong();
+        }
+        // 数据库和物理文件删除
+        await RdbManager.deleteSongById(song.id);
+        await MusicImportService.deleteSongs(context, song);
+      }
+
+      this.musicState.songList = remainingSongs;
+      this.exitSelectMode();
+      promptAction.showToast({ message: "已批量删除" });
+    }
+  }
+
+  // 批量分享逻辑
+  handleBatchShare() {
+    if (this.selectedIds.length === 0) return;
+    const songsToShare = this.musicState.songList.filter(s => this.selectedIds.includes(s.id));
+
+    // 假设 MusicShareService.shareMultipleSongs 已实现
+    // 如果没有，可以循环调用现有的分享，但华为分享支持一次传入多条记录
+    MusicShareService.shareSongs(songsToShare);
+    this.exitSelectMode();
+  }
+
+  exitSelectMode() {
+    animateTo({ duration: 300, curve: Curve.EaseIn }, () => {
+      this.musicState.isSelecting = false;
+    });
+    this.selectedIds = [];
+  }
+
   build() {
-    Column() {
-      Text("资料库")
-        .fontSize(34)
-        .fontWeight(FontWeight.Bold)
-        .fontColor(Color.Black)
+    // 使用 Stack 容器，确保多选操作栏可以浮在最上层或固定在底部
+    Stack({ alignContent: Alignment.Bottom }) {
+      Column() {
+        // --- 动态标题栏 ---
+        Row() {
+          if (this.musicState.isSelecting) {
+            // 多选模式标题
+            Text(`已选择 ${this.selectedIds.length} 首`)
+              .fontSize(20)
+              .fontWeight(FontWeight.Bold)
+              .layoutWeight(1)
+
+            Text("全选")
+              .fontSize(16)
+              .fontColor('#E23241')
+              .margin({ right: 20 })
+              .onClick(() => {
+                // 全选逻辑：将所有歌曲 ID 放入数组
+                this.selectedIds = this.musicState.songList.map(s => s.id);
+              })
+
+            Text("完成")
+              .fontSize(16)
+              .fontWeight(FontWeight.Medium)
+              .fontColor(Color.Black)
+              .onClick(() => this.exitSelectMode())
+          } else {
+            // 普通模式标题
+            Text("资料库")
+              .fontSize(34)
+              .fontWeight(FontWeight.Bold)
+              .fontColor(Color.Black)
+              .layoutWeight(1)
+          }
+        }
         .width('100%')
-        .padding({ left: 20, top: 60, bottom: 10 })
+        .padding({ left: 20, right: 20, top: 60, bottom: 10 })
         .backgroundColor(Color.White)
 
-      Divider()
+        Divider()
 
-      List() {
-        ForEach(this.musicState.songList, (item: SongItemType, index: number) => {
-          ListItem() {
-            Row() {
-              Image(item.img || $r('app.media.ic_default'))
-                .width(50)
-                .height(50)
-                .borderRadius(6)
-                .margin({ right: 15 })
+        List() {
+          ForEach(this.musicState.songList, (item: SongItemType, index: number) => {
+            ListItem() {
+              Row() {
+                // --- 多选模式：显示复选框 ---
+                if (this.musicState.isSelecting) {
+                  Checkbox({ name: item.id, group: 'songs' })
+                    .select(this.selectedIds.includes(item.id))
+                    .selectedColor('#E23241')
+                    .width(20)
+                    .margin({ right: 15 })
+                    .onChange((value: boolean) => {
+                      if (value) {
+                        if (!this.selectedIds.includes(item.id)) {
+                          this.selectedIds.push(item.id);
+                        }
+                      } else {
+                        this.selectedIds = this.selectedIds.filter(id => id !== item.id);
+                      }
+                    })
+                }
 
-              Column() {
-                Text(item.name)
-                  .fontSize(16)
-                  .fontColor(this.musicState.currentID === item.id ? '#E23241' : Color.Black)
-                  .fontWeight(FontWeight.Medium)
-                  .maxLines(1)
-                  .textOverflow({ overflow: TextOverflow.Ellipsis })
-                Text(item.author)
-                  .fontSize(13)
-                  .fontColor(Color.Gray)
-                  .margin({ top: 4 })
+                Image(item.img || $r('app.media.ic_default'))
+                  .width(50)
+                  .height(50)
+                  .borderRadius(6)
+                  .margin({ right: 15 })
+
+                Column() {
+                  Text(item.name)
+                    .fontSize(16)
+                    .fontColor(this.musicState.currentID === item.id ? '#E23241' : Color.Black)
+                    .fontWeight(FontWeight.Medium)
+                    .maxLines(1)
+                    .textOverflow({ overflow: TextOverflow.Ellipsis })
+                  Text(item.author)
+                    .fontSize(13)
+                    .fontColor(Color.Gray)
+                    .margin({ top: 4 })
+                }
+                .layoutWeight(1)
+                .alignItems(HorizontalAlign.Start)
+
+                if (item.hasLyric) {
+                  Text("LRC")
+                    .fontSize(10)
+                    .fontColor(Color.White)
+                    .backgroundColor('#CCC')
+                    .padding({ left: 4, right: 4 })
+                    .borderRadius(4)
+                    .margin({ right: 10 })
+                }
               }
-              .layoutWeight(1)
-              .alignItems(HorizontalAlign.Start)
-
-              // 歌词标识图标
-              if (item.hasLyric) {
-                Text("LRC")
-                  .fontSize(10)
-                  .fontColor(Color.White)
-                  .backgroundColor('#CCC')
-                  .padding({ left: 4, right: 4 })
-                  .borderRadius(4)
-                  .margin({ right: 10 })
-              }
-
+              .width('100%')
+              .padding({ left: 20, right: 20, top: 10, bottom: 10 })
+              .backgroundColor(Color.White)
+              .onClick(() => {
+                if (this.musicState.isSelecting) {
+                  // 多选模式：点击整行切换选中状态
+                  const isSelected = this.selectedIds.includes(item.id);
+                  if (isSelected) {
+                    this.selectedIds = this.selectedIds.filter(id => id !== item.id);
+                  } else {
+                    this.selectedIds.push(item.id);
+                  }
+                } else {
+                  // 普通模式：播放
+                  this.musicState.isPlay = true;
+                  avPlayerManage.playResources(item);
+                }
+              })
+              // 多选模式下禁用长按菜单
+              .bindContextMenu(
+                this.musicState.isSelecting ? null : this.MusicActionMenu(item, index),
+                ResponseType.LongPress,
+                {
+                  enableArrow: false,
+                  preview: this.SongItemPreview(item),
+                  backgroundColor: Color.Transparent
+                }
+              )
             }
-            .width('100%')
-            .padding({ left: 20, right: 20, top: 10, bottom: 10 })
-            .backgroundColor(Color.White)
-            .onClick(() => {
-              this.musicState.isPlay = true;
-              avPlayerManage.playResources(item)
-            })
-            .bindContextMenu(
-              this.MusicActionMenu(item, index),
-              ResponseType.LongPress,
-              {
-                enableArrow: false,
-                preview: this.SongItemPreview(item),
-                backgroundColor: Color.Transparent
-              }
-            )
-          }
-        }, (item: SongItemType) => item.id) // 使用 id 作为 key 性能更好
+          }, (item: SongItemType) => item.id + this.musicState.isSelecting) // ID 加上模式后缀强制刷新组件
 
-        ListItem().height(100) // 底部留白，防止被播放条遮挡
+          // 底部留白：多选模式需要留出操作栏的高度
+          ListItem().height(this.musicState.isSelecting ? 160 : 100)
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .edgeEffect(EdgeEffect.Spring)
       }
       .width('100%')
-      .layoutWeight(1)
-      .edgeEffect(EdgeEffect.Spring)
+      .height('100%')
+
+      // --- 底部批量操作栏 ---
+      if (this.musicState.isSelecting) {
+        Row() {
+          // 批量删除
+          Column() {
+            Image($r('app.media.ic_delete'))
+              .width(24).height(24).fillColor(this.selectedIds.length > 0 ? Color.Red : '#999')
+            Text("删除").fontSize(12).margin({ top: 4 })
+              .fontColor(this.selectedIds.length > 0 ? Color.Red : '#999')
+          }
+          .layoutWeight(1)
+          .onClick(() => this.handleBatchDelete())
+
+          // 批量分享
+          Column() {
+            Image($r('app.media.ic_share'))
+              .width(24).height(24).fillColor(this.selectedIds.length > 0 ? Color.Black : '#999')
+            Text("分享").fontSize(12).margin({ top: 4 })
+              .fontColor(this.selectedIds.length > 0 ? Color.Black : '#999')
+          }
+          .layoutWeight(1)
+          .onClick(() => this.handleBatchShare())
+
+          // 添加至歌单
+          Column() {
+            Image($r('app.media.ic_add_to_playlist'))
+              .width(24).height(24).fillColor(this.selectedIds.length > 0 ? Color.Black : '#999')
+            Text("收藏").fontSize(12).margin({ top: 4 })
+              .fontColor(this.selectedIds.length > 0 ? Color.Black : '#999')
+          }
+          .layoutWeight(1)
+          .onClick(() => {
+            if (this.selectedIds.length > 0) {
+              promptAction.showToast({ message: "功能开发中..." })
+            }
+          })
+        }
+        .width('94%')
+        .height(72)
+        .margin({ left: '3%', right: '3%', bottom: 24 }) // 居中悬浮
+        .borderRadius(24)
+        // 1. 高斯模糊：使用系统超薄材质
+        .backgroundBlurStyle(BlurStyle.COMPONENT_ULTRA_THIN)
+        .backgroundColor('rgba(255, 255, 255, 0.4)') // 配合模糊的半透明底色
+        .shadow({ radius: 30, color: 'rgba(0,0,0,0.1)', offsetY: 10 })
+        .padding({ left: 10, right: 10 })
+        // 2. 修正后的转场动画：从底部滑入/滑出
+        .transition(
+          TransitionEffect.asymmetric(
+            // 进场：从底部边缘滑入 + 渐显
+            TransitionEffect.move(TransitionEdge.BOTTOM).combine(TransitionEffect.OPACITY),
+            // 出场：向底部边缘滑出 + 渐隐
+            TransitionEffect.move(TransitionEdge.BOTTOM).combine(TransitionEffect.OPACITY)
+          ).animation({ duration: 300, curve: Curve.EaseInOut })
+        )
+      }
     }
     .key(this.forceRefreshKey)
     .width('100%')
@@ -366,6 +584,7 @@ export struct LibraryView {
     })
   }
 }
+
 
 function copySong(item: SongItemType): SongItemType {
   return {

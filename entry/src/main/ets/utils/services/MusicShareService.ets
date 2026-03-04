@@ -63,6 +63,73 @@ class musicShareService {
   }
 
   /**
+   * 分享多首歌曲
+   * @param songs 歌曲数组
+   */
+  async shareSongs(songs: SongItemType[]): Promise<void> {
+    if (!this.context) {
+      console.error("MusicShareService: Context is null");
+      return;
+    }
+
+    if (!songs || songs.length === 0) {
+      console.warn("MusicShareService: 分享列表为空");
+      return;
+    }
+
+    try {
+      console.info(`MusicShareService: 开始准备批量分享, 数量: ${songs.length}`);
+
+      let sharedData: systemShare.SharedData | null = null;
+      let validCount = 0;
+
+      for (const song of songs) {
+        // 检查物理文件是否存在
+        const songPath: string = `${this.context.filesDir}/${song.filePath}`;
+        if (!fs.accessSync(songPath)) {
+          console.warn(`MusicShareService: 忽略不存在的文件 -> ${song.name}`);
+          continue;
+        }
+
+        // 构造单条记录
+        const record = this.buildSharedRecord(song);
+
+        // 初始化 SharedData 或 添加记录
+        if (!sharedData) {
+          // 第一条记录用于初始化
+          sharedData = new systemShare.SharedData(record);
+        } else {
+          // 后续记录通过 addRecord 添加
+          sharedData.addRecord(record);
+        }
+        validCount++;
+      }
+
+      if (!sharedData || validCount === 0) {
+        console.error("MusicShareService: 没有有效的歌曲可供分享");
+        return;
+      }
+
+      // —— 显示分享面板 —— //
+      const controller = new systemShare.ShareController(sharedData);
+
+      // 对于多文件分享，建议使用 BATCH 模式
+      await controller.show(this.context, {
+        previewMode: systemShare.SharePreviewMode.DEFAULT,
+        selectionMode: systemShare.SelectionMode.BATCH
+      });
+
+      console.info(`MusicShareService: 批量分享面板已弹出, 有效数量: ${validCount}`);
+
+    } catch (err) {
+      const error = err as BusinessError;
+      console.error(
+        `MusicShareService: 批量分享失败 code: ${error.code}, msg: ${error.message}`
+      );
+    }
+  }
+
+  /**
    * 分享单首歌曲
    */
   async shareSong(song: SongItemType): Promise<void> {

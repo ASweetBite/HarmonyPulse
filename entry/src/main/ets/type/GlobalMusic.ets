@@ -17,6 +17,8 @@ export class GlobalMusic {
   @Trace playbackStatus: PlaybackMode = "顺序播放"
   @Trace currentMusic: number = 0
   @Trace isShowPlayBar: boolean = false
+  @Trace isSelecting: boolean = false; // 新增：全局多选状态
+
   private onSongChangeListeners: Array<() => void> = [];
 
   // 核心：播放列表

@@ -101,30 +101,37 @@ struct MusicIndex {
           LoadingProgress().width(50).height(50).color('#E23241')
         }
 
-        Button({ type: ButtonType.Circle }) {
-          Text("+")
-            .fontSize(30)
-            .fontColor(Color.White)
-            .padding({ bottom: 4 }) // 视觉修正
+        if (!this.globalMusic.isSelecting) {
+          Button({ type: ButtonType.Circle }) {
+            Text("+").fontSize(30).fontColor(Color.White)
+          }
+          .width(56).height(56)
+          .position({ x: '82%', y: '72%' })
+          .backgroundColor('#E23241')
+          .shadow({ radius: 15, color: 'rgba(226, 50, 65, 0.4)', offsetY: 6 })
+          .onClick(async () => { /* ... */ })
+          .transition(
+            TransitionEffect.OPACITY
+              .combine(TransitionEffect.scale({ x: 0, y: 0 })) // 消失时缩写到0
+              .animation({ duration: 250, curve: Curve.EaseInOut })
+          )
         }
-        .width(50)
-        .height(50)
-        .position({ x: '80%', y: '75%' }) // 悬浮在右下角
-        .backgroundColor('#E23241')
-        .shadow({ radius: 10, color: '#99E23241' })
-        .onClick(async () => {
-          const context = getContext(this) as common.UIAbilityContext;
-          await MusicImportService.importFromPicker(context, this.globalMusic);
 
-        })
-
-        // 底部播放器
-        MiniPlayBar({ musicState: this.globalMusic })
+        // 3. 底部播放条：位移转场
+        if (!this.globalMusic.isSelecting) {
+          Column() {
+            MiniPlayBar({ musicState: this.globalMusic })
+          }
+          .width('100%')
+          .transition(
+            TransitionEffect.move(TransitionEdge.BOTTOM) // 修正：小写 move
+              .animation({ duration: 300, curve: Curve.Friction })
+          )
+        }
       }
       .width('100%')
       .height('100%')
-      .backgroundColor(Color.White)
-      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+      .clip(false) // 重要：允许子组件在转场过程中超出边界
     }
     .hideTitleBar(true)
     .backgroundColor(Color.White)
