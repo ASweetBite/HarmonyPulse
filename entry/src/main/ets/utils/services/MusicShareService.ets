@@ -9,9 +9,36 @@ import { fileIo as fs } from '@kit.CoreFileKit'; // 引入 fs 用于检查文件
 class musicShareService {
 
   private context: common.UIAbilityContext | null = null;
+  private appLogoUri: string = ''; // 缓存 Logo 的 URI
 
-  setContext(ctx: common.UIAbilityContext) {
+  async setContext(ctx: common.UIAbilityContext) {
     this.context = ctx;
+    await this.initAppLogo(ctx);
+  }
+
+  /**
+   * 初始化时将资源图片转换为可共享的 URI
+   */
+  async initAppLogo(ctx: common.UIAbilityContext) {
+    // 使用传入的 ctx，而不是 this.context
+    const logoPath = `${ctx.filesDir}/app_logo.png`;
+
+    if (!fs.accessSync(logoPath)) {
+      try {
+        const resourceMgr = ctx.resourceManager;
+        const fileData = await resourceMgr.getMediaContent($r('app.media.logo'));
+        const file = fs.openSync(logoPath, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE);
+        fs.writeSync(file.fd, fileData.buffer);
+        fs.closeSync(file);
+      } catch (e) {
+        console.error('MusicShareService: Logo 转换失败', JSON.stringify(e));
+      }
+    }
+    this.appLogoUri = fileUri.getUriFromPath(logoPath);
+  }
+
+  getAppLogoUri(): string {
+    return this.appLogoUri;
   }
 
   /**
@@ -20,46 +47,55 @@ class musicShareService {
    * @returns systemShare.SharedRecord
    */
   buildSharedRecord(song: SongItemType): systemShare.SharedRecord {
-    // —— 1. 处理音频 URI —— //
-    const fileExt = "." + song.filePath.split('.').pop(); // 'mp3' 等
-    const songPath: string = `${this.context!.filesDir}/${song.filePath}`; // 假设 context 已经设置
-
-    // 检查文件是否存在
-    if (!fs.accessSync(songPath)) {
-      console.warn(`MusicShareService: _buildSharedRecord 警告: 音频文件不存在 -> ${songPath}`);
+    if (!this.context) {
+      throw new Error("MusicShareService not initialized");
     }
 
-    const shareUri: string = fileUri.getUriFromPath(songPath);
+    // —— 1. 处理音频文件 URI (必须转换) ——
+    // 假设 song.filePath 存的是文件名 "123.mp3"
+    const audioAbsPath = `${this.context.filesDir}/${song.filePath}`;
+    // 关键：不要手动拼 "file://"，要用 getUriFromPath
+    const audioShareUri = fileUri.getUriFromPath(audioAbsPath);
 
-    // —— 2. 处理封面 URI —— //
+    // —— 2. 处理封面图 URI (必须转换) ——
     let validThumbnailUri: string | undefined = undefined;
 
-    if (song.img && song.img.length > 0) {
-      // 如果 song.img 已经是 file://com.example... 格式则直接用
-      if (song.img.startsWith('file://') && !song.img.startsWith('file:///')) {
-        validThumbnailUri = song.img;
+    if (song.img) {
+      let imgAbsPath = '';
+
+      // 如果数据库里存的是 "cover_xxx.jpg" 这种文件名
+      if (!song.img.includes('/')) {
+        imgAbsPath = `${this.context.filesDir}/${song.img}`;
       } else {
-        // 否则尝试清理并检查路径是否有效
-        let cleanImgPath = song.img.replace('file://', '');
-        if (fs.accessSync(cleanImgPath)) {
-          validThumbnailUri = fileUri.getUriFromPath(cleanImgPath);
+        // 如果存的是完整路径，先去掉可能存在的旧 file:// 前缀
+        imgAbsPath = song.img.replace('file://', '');
+      }
+
+      // 检查文件确实存在后，转换为系统可识别的分享 URI
+      try {
+        if (fs.accessSync(imgAbsPath)) {
+          // 这一步会生成类似 file://com.example.music/data/storage/... 的格式
+          validThumbnailUri = fileUri.getUriFromPath(imgAbsPath);
+        } else {
+          console.warn(`MusicShareService: 封面文件不存在于路径: ${imgAbsPath}`);
         }
+      } catch (e) {
+        console.error(`MusicShareService: 检查封面权限失败: ${JSON.stringify(e)}`);
       }
     }
 
-    console.info(`MusicShareService: _buildSharedRecord 构建 \nAudio: ${shareUri} \nThumb: ${validThumbnailUri}`);
+    // 如果歌曲没有封面，可以退而求其次使用 App Logo
+    if (!validThumbnailUri) {
+      validThumbnailUri = this.getAppLogoUri();
+    }
 
-
-    // —— 3. 构造 SharedRecord —— //
-    const audioRecord: systemShare.SharedRecord = {
-      utd: utd.UniformDataType.AUDIO,
-      uri: shareUri,
-      title: song.name + fileExt, // 确保不为空
-      description: song.author, // 确保不为空
-      thumbnailUri: validThumbnailUri // 只有是有效 URI 时才传
+    return {
+      utd: 'general.audio', // 或者使用 utd.UniformDataType.AUDIO
+      uri: audioShareUri,
+      title: song.name,
+      description: song.author,
+      thumbnailUri: validThumbnailUri // 现在的 validThumbnailUri 是跨进程可读的了
     };
-
-    return audioRecord;
   }
 
   /**
@@ -170,6 +206,40 @@ class musicShareService {
         `MusicShareService: 分享失败 code: ${error.code}, msg: ${error.message}`
       );
     }
+  }
+  /**
+   * 封装集合分享数据（用于资料库或歌单）
+   * @param songs 歌曲列表
+   * @param collectionName 显示的集合名称（如“资料库”或歌单名）
+   * @param collectionCover 集合封面图（如歌单封面）
+   */
+  buildCollectionSharedData(songs: SongItemType[], collectionName: string, collectionCover?: string): systemShare.SharedData | null {
+    if (songs.length === 0) return null;
+
+    let sharedData: systemShare.SharedData | null = null;
+
+    for (let i = 0; i < songs.length; i++) {
+      const song = songs[i];
+      const record = this.buildSharedRecord(song);
+
+      // --- 关键视觉优化：重写第一条记录的元数据用于展示 ---
+      // 系统通常取第一条 record 的 title 和 thumbnail 作为整个分享任务的预览
+      if (i === 0) {
+        record.title = collectionName; // 显示为“资料库”或“周杰伦精选集”
+        if (collectionCover) {
+          // 如果有歌单封面，第一条记录使用歌单封面
+          record.thumbnailUri = fileUri.getUriFromPath(collectionCover);
+        }
+        record.description = `共 ${songs.length} 首歌曲`;
+      }
+
+      if (!sharedData) {
+        sharedData = new systemShare.SharedData(record);
+      } else {
+        sharedData.addRecord(record);
+      }
+    }
+    return sharedData;
   }
 }
 

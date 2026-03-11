@@ -61,18 +61,19 @@
         "skills": [
           {
             "actions": [
-              "ohos.want.action.sendData" // 接收单文件
+              "ohos.want.action.sendData", // 接收单文件
+              "ohos.want.action.sendMultipleData"
             ],
             "uris": [
               {
                 "scheme": "file",
                 "utd": "general.audio",
-                "maxFileSupported": 1
+                "maxFileSupported": 128
               },
               {
                 "scheme": "content", // 3. 必须添加 content 协议支持
                 "utd": "general.audio",
-                "maxFileSupported": 1
+                "maxFileSupported": 128
               }
             ]
           }

@@ -10,12 +10,11 @@ import { AppSignal } from '../type/AppSignal'
 const DOMAIN = 0x0000
 
 export default class EntryAbility extends UIAbility {
-
-  onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
+  async onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): Promise<void> {
     // 1. 初始化所有单例的 Context
     avPlayerManage.setContext(this.context)
     lyricManager.setContext(this.context)
-    MusicShareService.setContext(this.context)
+    await MusicShareService.setContext(this.context)
     this.handleWant(want);
 
     try {
@@ -82,9 +81,11 @@ export default class EntryAbility extends UIAbility {
 
   onForeground(): void {
     hilog.info(DOMAIN, 'testTag', 'Ability onForeground')
+    this.context.eventHub.emit('onForeGround');
   }
 
   onBackground(): void {
     hilog.info(DOMAIN, 'testTag', 'Ability onBackground')
+    this.context.eventHub.emit('onBackGround');
   }
 }

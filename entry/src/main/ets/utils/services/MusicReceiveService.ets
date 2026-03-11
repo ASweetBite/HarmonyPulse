@@ -71,19 +71,42 @@ export default class ShareReceiveAbility extends UIAbility {
     }
   }
 
+  /**
+   * 处理分享过来的音频
+   */
   private async handleAudio(uri: string, title?: string): Promise<void> {
     try {
-      const tempGlobalMusic = new GlobalMusic();
-      // 查重逻辑
-      await MusicImportService.loadSongs(this.context, tempGlobalMusic);
-      const song = await MusicImportService.importSingleFile(uri, this.context, tempGlobalMusic);
+      console.info(`ShareReceiveAbility: 开始处理分享音频: ${uri}`);
+
+      // 1. 获取数据库中现有的歌曲，用于构造查重 Set
+      // 这里的逻辑要与 MusicImportService 中的 importFromPicker 保持一致
+      const currentSongs = await RdbManager.getAllSongs();
+      const existingKeys = new Set<string>();
+      currentSongs.forEach(s => {
+        existingKeys.add(`${s.name}-${s.author}`);
+      });
+
+      // 2. 调用更新后的导入逻辑
+      // 注意：这里不再需要 loadSongs 到一个临时 GlobalMusic，直接利用 RDB 的结果进行查重
+      const song = await MusicImportService.importSingleFile(uri, this.context, existingKeys);
 
       if (song) {
+        // 3. 写入数据库
         await RdbManager.insertSong(song);
-        await MusicImportService.saveSongs(this.context, tempGlobalMusic.songList);
+
+        // 4. 更新 Preferences 备份
+        // 将新导入的歌曲加入当前列表并全量保存一次，确保 Preferences 与 RDB 同步
+        currentSongs.push(song);
+        await MusicImportService.saveSongs(this.context, currentSongs);
+
+        console.info(`ShareReceiveAbility: 分享歌曲 [${song.name}] 导入并持久化成功`);
+      } else {
+        console.warn('ShareReceiveAbility: 歌曲已存在或解析失败，跳过导入');
       }
+
     } catch (err) {
-      console.error(`处理音频分享异常: ${JSON.stringify(err)}`);
+      const error = err as BusinessError;
+      console.error(`ShareReceiveAbility: 处理音频分享异常, code: ${error.code}, msg: ${error.message}`);
     }
   }
 

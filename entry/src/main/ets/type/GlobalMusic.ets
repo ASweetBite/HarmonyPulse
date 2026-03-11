@@ -18,6 +18,7 @@ export class GlobalMusic {
   @Trace currentMusic: number = 0
   @Trace isShowPlayBar: boolean = false
   @Trace isSelecting: boolean = false; // 新增：全局多选状态
+  @Trace isFullPage: boolean = false;
 
   private onSongChangeListeners: Array<() => void> = [];
 

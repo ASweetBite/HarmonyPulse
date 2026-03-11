@@ -109,7 +109,10 @@ struct MusicIndex {
           .position({ x: '82%', y: '72%' })
           .backgroundColor('#E23241')
           .shadow({ radius: 15, color: 'rgba(226, 50, 65, 0.4)', offsetY: 6 })
-          .onClick(async () => { /* ... */ })
+          .onClick(async () => {
+            const context = getContext(this) as common.UIAbilityContext;
+            await MusicImportService.importFromPicker(context, this.globalMusic);
+          })
           .transition(
             TransitionEffect.OPACITY
               .combine(TransitionEffect.scale({ x: 0, y: 0 })) // 消失时缩写到0

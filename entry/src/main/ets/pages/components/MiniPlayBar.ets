@@ -4,11 +4,12 @@ import { LyricLine, SongItemType } from '../../type/SongItemType';
 import { avPlayerManage } from '../../utils/managers/avPlayerManager';
 import { LyricManager, lyricManager } from '../../utils/managers/LyricManager';
 import { number2time } from '../../utils/TimeUtils';
-import { uniformTypeDescriptor as utd } from '@kit.ArkData';
+import { uniformTypeDescriptor as utd  } from '@kit.ArkData';
 import { systemShare, harmonyShare } from '@kit.ShareKit';
 import Curves from '@ohos.curves';
 import RdbManager from '../../utils/managers/RdbManager';
 import { MusicShareService } from '../../utils/services/MusicShareService';
+import { promptAction } from '@kit.ArkUI';
 
 const OFFSET_PER_LINE = 10;
 const MAX_OFFSET_CAP = 30;
@@ -34,15 +35,28 @@ export struct MiniPlayBar {
 
   @Local private lyricBounceOffset: number = 0
   private isManualScrolling: boolean = false; // 手动跳转锁
-  private targetLyricIndex: number = -1;      // 目标索引
   private jumpLockTimer: number = -1; // 专门用于处理跳转锁的定时器
   private liquidCurve = Curves.interpolatingSpring(5, 1.5, 60, 12);
   //隔空传送相关
+  @Monitor("isFullScreenPlayerOpen")
+  onExpansionChange() {
+    if (this.isFullScreenPlayerOpen) {
+      console.info('MiniPlayBar: 播放页已展开，启用系统分享监听');
+      this.musicState.isFullPage = true;
+      this.immersiveListening();
+    } else {
+      console.info('MiniPlayBar: 播放页已折叠，禁用系统分享监听');
+      this.musicState.isFullPage = false;
+      this.immersiveDisablingListening();
+    }
+  }
+
   private immersiveCallback = async (sharableTarget: harmonyShare.SharableTarget) => {
     try {
       const song = await RdbManager.getSongById(this.musicState.currentID);
 
       if (!song) {
+        promptAction.showToast({ message: '请先播放一首歌曲', duration: 2000 });
         console.warn('当前歌曲不存在，无法分享');
         return;
       }
@@ -58,14 +72,20 @@ export struct MiniPlayBar {
     }
   };
 
+  private isListening: boolean = false;
+
   private immersiveListening() {
+    if (this.isListening) return;
     harmonyShare.on('gesturesShare', this.immersiveCallback);
     harmonyShare.on('knockShare', this.immersiveCallback);
+    this.isListening = true;
   }
 
   private immersiveDisablingListening() {
+    if (!this.isListening) return;
     harmonyShare.off('gesturesShare', this.immersiveCallback);
     harmonyShare.off('knockShare', this.immersiveCallback);
+    this.isListening = false;
   }
 
   aboutToDisappear(): void {
@@ -82,9 +102,13 @@ export struct MiniPlayBar {
   }
 
   aboutToAppear() {
-    this.immersiveListening();
+    if (this.isFullScreenPlayerOpen) {
+      this.immersiveListening();
+    }
     let uiContext: UIContext = this.getUIContext();
     let context: Context = uiContext.getHostContext() as Context;
+    //订阅前后台事件
+    context.eventHub.on('onBackGround', this.onBackGround);
     context.eventHub.on('onBackGround', this.onBackGround);
     // 组件加载时，订阅歌曲切换事件
     this.musicState.onSongChange(() => {
@@ -97,6 +121,12 @@ export struct MiniPlayBar {
 
   private onBackGround = () => {
     this.immersiveDisablingListening();
+  }
+
+  private onForeGround = () => {
+    if (this.isFullScreenPlayerOpen) {
+      this.immersiveListening();
+    }
   }
 
   loadLyricManual() {
@@ -192,7 +222,6 @@ export struct MiniPlayBar {
 
     this.isUserInteracting = false;
     this.isManualScrolling = true;
-    this.targetLyricIndex = index;
 
 
     const diff = this.currentLyricIndex - index;

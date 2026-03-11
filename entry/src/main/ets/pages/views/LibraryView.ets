@@ -13,6 +13,7 @@ import RdbManager from '../../utils/managers/RdbManager';
 import { MusicShareService } from '../../utils/services/MusicShareService';
 import { MusicImportService } from '../../utils/services/MusicImportService';
 import { common } from '@kit.AbilityKit';
+import { harmonyShare, systemShare } from '@kit.ShareKit';
 
 @ComponentV2
 export struct LibraryView {
@@ -22,6 +23,95 @@ export struct LibraryView {
   @Local editingLyricText: string = ""; // 正在编辑的歌词文本
   @Local forceRefreshKey: string = "0";
   @Local selectedIds: string[] = [];    // 已选中的歌曲ID列表
+  private isListening: boolean = false;
+
+  // --- 1. 核心分享回调逻辑 ---
+  private libraryImmersiveCallback = async (sharableTarget: harmonyShare.SharableTarget) => {
+    let songsToShare = this.musicState.songList;
+    let title = "资料库";
+
+    if (this.musicState.isSelecting) {
+      if (this.selectedIds.length === 0) return;
+      songsToShare = this.musicState.songList.filter(s => this.selectedIds.includes(s.id));
+      title = `资料库 (选中${songsToShare.length}首)`;
+    }
+
+    // 获取刚才初始化的 Logo URI
+    const logoUri = MusicShareService.getAppLogoUri();
+
+    try {
+      const sharedData = MusicShareService.buildCollectionSharedData(
+        songsToShare,
+        title,
+        logoUri
+      );
+
+      if (sharedData) {
+        await sharableTarget.share(sharedData);
+      }
+    } catch (err) {
+      console.error('资料库分享失败', err);
+    }
+  };
+
+  // --- 2. 监听器开关控制 ---
+  private enableShare() {
+    if (this.isListening) return;
+    harmonyShare.on('gesturesShare', this.libraryImmersiveCallback);
+    harmonyShare.on('knockShare', this.libraryImmersiveCallback);
+    this.isListening = true;
+    console.info('LibraryView: 开启分享监听');
+  }
+
+  private disableShare() {
+    if (!this.isListening) return;
+    harmonyShare.off('gesturesShare', this.libraryImmersiveCallback);
+    harmonyShare.off('knockShare', this.libraryImmersiveCallback);
+    this.isListening = false;
+    console.info('LibraryView: 关闭分享监听');
+  }
+
+  // --- 3. 状态联动与生命周期 ---
+
+  // 监听：如果播放页展开了，资料库必须关闭监听（互斥）
+  @Monitor("musicState.isFullPage")
+  onPlayerExpansionChange() {
+    this.updateListenerState();
+  }
+
+  private updateListenerState() {
+    // 只有当：播放页没展开 且 应用在前台 时，资料库才抢占监听权
+    if (!this.musicState.isFullPage) {
+      this.enableShare();
+    } else {
+      this.disableShare();
+    }
+  }
+
+  // 处理前后台切换 (由 EntryAbility 触发)
+  private onForeGround = () => {
+    this.updateListenerState();
+  }
+
+  private onBackGround = () => {
+    this.disableShare();
+  }
+
+  aboutToAppear() {
+    let context = getContext(this) as common.UIAbilityContext;
+    context.eventHub.on('onForeGround', this.onForeGround);
+    context.eventHub.on('onBackGround', this.onBackGround);
+
+    // 初始化状态
+    this.updateListenerState();
+  }
+
+  aboutToDisappear() {
+    let context = getContext(this) as common.UIAbilityContext;
+    context.eventHub.off('onForeGround', this.onForeGround);
+    context.eventHub.off('onBackGround', this.onBackGround);
+    this.disableShare();
+  }
 
   private forceUpdateUI() {
     this.forceRefreshKey = new Date().getTime().toString() + Math.random().toString(36).substring(2);
@@ -367,8 +457,6 @@ export struct LibraryView {
     if (this.selectedIds.length === 0) return;
     const songsToShare = this.musicState.songList.filter(s => this.selectedIds.includes(s.id));
 
-    // 假设 MusicShareService.shareMultipleSongs 已实现
-    // 如果没有，可以循环调用现有的分享，但华为分享支持一次传入多条记录
     MusicShareService.shareSongs(songsToShare);
     this.exitSelectMode();
   }

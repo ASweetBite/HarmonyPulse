@@ -24,41 +24,68 @@ export class MusicImportService {
   ): Promise<void> {
     try {
       const audioPicker = new picker.AudioViewPicker()
+      // 允许选择多个音频文件
       const uris = await audioPicker.select(new picker.AudioSelectOptions())
 
       if (!uris || uris.length === 0) return
 
+      console.info(`开始批量导入, 共选择 ${uris.length} 个文件`)
+
+      // 1. 优化去重：先提取现有歌曲的唯一键 (歌名+歌手) 存入 Set
+      const existingKeys = new Set<string>()
+      globalMusic.songList.forEach(s => {
+        existingKeys.add(`${s.name}-${s.author}`)
+      })
+
+      let successCount = 0
+      let skipCount = 0
+
+      // 2. 循环处理每一个选中的 URI
       for (const uri of uris) {
-        const song = await MusicImportService.importSingleFile(uri, context, globalMusic)
-        if (song) {
-          globalMusic.addSong(song)
-          RdbManager.insertSong(song)
+        try {
+          // 传入 existingKeys 进行快速查重
+          const song = await MusicImportService.importSingleFile(uri, context, existingKeys)
+
+          if (song) {
+            // 更新内存列表
+            globalMusic.addSong(song)
+            // 写入 RDB 数据库
+            await RdbManager.insertSong(song)
+            // 将新歌也加入查重 Set，防止本次导入中出现重复文件
+            existingKeys.add(`${song.name}-${song.author}`)
+            successCount++
+          } else {
+            skipCount++
+          }
+        } catch (itemError) {
+          // 单个文件导入失败不影响后续文件
+          console.error(`文件导入异常 [${uri}]:`, JSON.stringify(itemError))
         }
       }
 
-      // --- 关键改动：导入完成后持久化保存整个列表 ---
+      // 3. 批量处理完后，进行一次性的持久化备份（Preferences）
       await MusicImportService.saveSongs(context, globalMusic.songList)
-      console.info('歌曲导入并持久化完成')
+
+      console.info(`导入任务完成: 成功 ${successCount} 首, 跳过 ${skipCount} 首`)
 
     } catch (err) {
       const error = err as BusinessError
-      console.error(`导入失败: ${error.code}, ${error.message}`)
+      console.error(`AudioPicker 呼起失败: ${error.code}, ${error.message}`)
     }
   }
+
 
   /**
    * 函数一：持久化保存歌曲列表
    * 将 SongItemType 数组序列化为 JSON 字符串存入首选项
    */
-  static async saveSongs(context: common.UIAbilityContext, songs: SongItemType[]): Promise<void> {
+  static async saveSongs(context: common.Context, songs: SongItemType[]): Promise<void> {
     try {
       const pref = await preferences.getPreferences(context, PREF_NAME)
-      // 将数组转为字符串存储
       await pref.put(KEY_SONG_LIST, JSON.stringify(songs))
-      // flush 确保数据写入磁盘
       await pref.flush()
     } catch (e) {
-      console.error('保存歌曲列表失败', JSON.stringify(e))
+      console.error('Preferences 保存失败', e)
     }
   }
 
@@ -88,104 +115,82 @@ export class MusicImportService {
    */
   public static async importSingleFile(
     uri: string,
-    context: common.UIAbilityContext,
-    globalMusic: GlobalMusic
+    context: common.Context,
+    existingKeys?: Set<string>
   ): Promise<SongItemType | null> {
 
     const decodeUri = decodeURIComponent(uri)
     const fullName = decodeUri.substring(decodeUri.lastIndexOf('/') + 1)
     const dotIndex = fullName.lastIndexOf('.')
-
-    const baseName = dotIndex !== -1 ? fullName.substring(0, dotIndex) : fullName
     const ext = dotIndex !== -1 ? fullName.substring(dotIndex) : '.mp3'
+    const baseName = dotIndex !== -1 ? fullName.substring(0, dotIndex) : fullName
 
-    // --- 去重逻辑 ---
     let title: string = baseName
     let artist: string = '未知艺术家'
-    let preExtractor: media.AVMetadataExtractor | undefined
-    let preSrcFile: fs.File | undefined
+    let extractor: media.AVMetadataExtractor | undefined
+    let srcFile: fs.File | undefined
 
     try {
-      preSrcFile = fs.openSync(uri, fs.OpenMode.READ_ONLY)
-      preExtractor = await media.createAVMetadataExtractor()
-      preExtractor.fdSrc = { fd: preSrcFile.fd }
-      const metadata = await preExtractor.fetchMetadata()
+      // --- 阶段 1: 预解析元数据进行查重 ---
+      srcFile = fs.openSync(uri, fs.OpenMode.READ_ONLY)
+      extractor = await media.createAVMetadataExtractor()
+      extractor.fdSrc = { fd: srcFile.fd }
+      const metadata = await extractor.fetchMetadata()
 
       if (metadata.title?.trim()) title = metadata.title
       if (metadata.artist?.trim()) artist = metadata.artist
 
-      // 【关键点3】检查 globalMusic.songList (因为你的类里主要用这个)
-      const currentList = globalMusic.songList
-      let isDuplicate = false
-      for (let i = 0; i < currentList.length; i++) {
-        const item: SongItemType = currentList[i]
-        if (item.name === title && item.author === artist) {
-          isDuplicate = true
-          break
-        }
-      }
-
-      if (isDuplicate) {
-        console.info(`[去重] 歌曲已存在: ${title}`)
+      // 快速查重逻辑
+      if (existingKeys && existingKeys.has(`${title}-${artist}`)) {
+        console.info(`[去重] 跳过重复歌曲: ${title} - ${artist}`)
         return null
       }
-    } catch (e) {
-      console.warn('查重阶段解析失败')
-    } finally {
-      if (preExtractor) await preExtractor.release()
-      if (preSrcFile) fs.closeSync(preSrcFile)
-    }
 
-    // --- 剩下的拷贝逻辑保持原样 ---
-    const newFileName = `${Date.now()}${ext}`
-    const destPath = `${context.filesDir}/${newFileName}`
+      // --- 阶段 2: 物理拷贝文件 ---
+      const newFileName = `${Date.now()}_${Math.floor(Math.random() * 1000)}${ext}`
+      const destPath = `${context.filesDir}/${newFileName}`
+      const destFile = fs.openSync(destPath, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE)
 
-    const src = fs.openSync(uri, fs.OpenMode.READ_ONLY)
-    const dest = fs.openSync(destPath, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE)
-    fs.copyFileSync(src.fd, dest.fd)
-    fs.closeSync(src)
-    fs.closeSync(dest)
+      // 使用 copyFileSync 进行 FD 拷贝
+      fs.copyFileSync(srcFile.fd, destFile.fd)
+      fs.closeSync(destFile)
 
-    let coverUri = ''
-    let extractor: media.AVMetadataExtractor | undefined
-    let targetFile: fs.File | undefined
-
-    try {
-      extractor = await media.createAVMetadataExtractor()
-      targetFile = fs.openSync(destPath, fs.OpenMode.READ_ONLY)
-      extractor.fdSrc = { fd: targetFile.fd }
-      const metadata = await extractor.fetchMetadata()
-      if (metadata.title?.trim()) title = metadata.title
-      if (metadata.artist?.trim()) artist = metadata.artist
-      const pixelMap = await extractor.fetchAlbumCover()
-      if (pixelMap) {
-        coverUri = await MusicImportService.saveCover(pixelMap, context)
+      // --- 阶段 3: 提取并保存封面 ---
+      let coverUri = ''
+      try {
+        const pixelMap = await extractor.fetchAlbumCover()
+        if (pixelMap) {
+          coverUri = await MusicImportService.saveCover(pixelMap, context)
+        }
+      } catch (coverErr) {
+        console.warn(`封面提取失败: ${title}`)
       }
-    } catch (e) {
-      console.warn(`元数据解析失败: ${JSON.stringify(e)}`)
-    } finally {
-      if (extractor) await extractor.release()
-      if (targetFile) fs.closeSync(targetFile)
-    }
-    const tempId = `user_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`
 
-    // ---------- 适配新的 SongItemType 结构 ----------
-    return {
-      id: tempId,
-      name: title,
-      author: artist,
-      img: coverUri,
-      filePath: newFileName, // 存储沙箱内的文件名
-      lyricPath: lyricManager.getOrCreateLyricPath(tempId),   //导入歌曲时自动创建歌词
-      hasLyric: false        // 初始为 false
+      const tempId = `user_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`
+
+      return {
+        id: tempId,
+        name: title,
+        author: artist,
+        img: coverUri,
+        filePath: newFileName,
+        lyricPath: lyricManager.getOrCreateLyricPath(tempId),
+        hasLyric: false
+      }
+
+    } finally {
+      // 无论成功失败，必须释放资源
+      if (extractor) await extractor.release()
+      if (srcFile) fs.closeSync(srcFile)
     }
   }
 
   private static async saveCover(
     pixelMap: image.PixelMap,
-    context: common.UIAbilityContext
+    context: common.Context
   ): Promise<string> {
-    const coverPath = `${context.filesDir}/cover_${Date.now()}.jpg`
+    const fileName = `cover_${Date.now()}_${Math.floor(Math.random() * 100)}.jpg`
+    const coverPath = `${context.filesDir}/${fileName}`
     const file = fs.openSync(coverPath, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE)
     const packer = image.createImagePacker()
     await packer.packToFile(pixelMap, file.fd, { format: 'image/jpeg', quality: 80 })
